@@ -305,7 +305,18 @@ Google Colab enforces two hard constraints that affect how you should run this p
 
 Both notebooks have built-in memory cleanup between stages, so they won't hit OOM. No cross-session dependency, no session limit issues.
 
-> **💡 Cross-session persistence:** Set `SAVE_TO_DRIVE = True` at the top of `Master_Pipeline.ipynb` to mount Google Drive and persist all outputs (models, CSVs, PNGs) to `/content/drive/MyDrive/BTC_Sentiment_Project/outputs/`. This makes artifacts survive across Colab sessions — close the session, come back tomorrow, and everything is still on your Drive. (Colab only; falls back to local paths if run outside Colab.)
+> **💡 Cross-session persistence (Phase 1):** Set `SAVE_TO_DRIVE = True` at the top of `Master_Pipeline.ipynb` to mount Google Drive and persist all outputs (models, CSVs, PNGs) to `/content/drive/MyDrive/BTC_Sentiment_Project/outputs/`. This makes artifacts survive across Colab sessions — close the session, come back tomorrow, and everything is still on your Drive. (Colab only; falls back to local paths if run outside Colab.)
+
+> **💡 Cross-session persistence + skip-compute (Phase 2):** `Master_Pipeline_Phase2.ipynb` adds two companion flags:
+> - **`SAVE_TO_DRIVE = True`** — same as Phase 1; redirects all outputs to Drive.
+> - **`LOAD_FROM_DRIVE = True`** — mounts Drive and **skips heavy compute** if artifacts already exist there:
+>   - If `features_for_lstm.pkl` exists on Drive → load it, skip inline feature rebuild (~1 min saved)
+>   - If `best_optuna_params.json` exists on Drive → load params, skip Optuna search (~15-25 min saved)
+>   - If `best_optuna_model.keras` exists on Drive → load model, skip final training (~2-3 min saved)
+>
+> **Typical iteration workflow:**
+> 1. First session: `SAVE_TO_DRIVE=True`, `LOAD_FROM_DRIVE=False` → run full pipeline, artifacts saved to Drive.
+> 2. Subsequent sessions: `SAVE_TO_DRIVE=True`, `LOAD_FROM_DRIVE=True` → skip Optuna + training, go straight to SHAP/backtest iteration.
 
 **Flow B — Sequential in the SAME session:** Open Notebook 01 in Colab, run it, then open Notebooks 02-05 in the same session via File → Open. All interim artifacts persist in `/content/btc-llm-sentiment/notebooks/interim/` as long as the session stays alive. Each notebook has a memory cleanup cell at the end (02 releases the LLM from VRAM; 04 clears the Keras session) so you won't hit OOM.
 
@@ -325,8 +336,8 @@ python3 scripts/run_shap_analysis.py
 ```
 
 ### Interactive notebooks (Colab or local)
-- **`Master_Pipeline.ipynb`** — 🚀 Phase 1: 1-click full pipeline (Stages 1-5 in one session). **Best for Colab.**
-- **`Master_Pipeline_Phase2.ipynb`** — 🚀 Phase 2: 1-click advanced upgrades (Walk-Forward CV → Optuna → Risk-Managed Backtest → SHAP). Config flags: `RUN_WALK_FORWARD`, `RUN_OPTUNA`, `N_OPTUNA_TRIALS`, `RUN_RISK_MANAGED`, `USE_SHAP`.
+- **`Master_Pipeline.ipynb`** — 🚀 Phase 1: 1-click full pipeline (Stages 1-5 in one session). Config flags: `USE_PRECOMPUTED`, `RUN_OPTUNA`, `N_OPTUNA_TRIALS`, `SAVE_TO_DRIVE`.
+- **`Master_Pipeline_Phase2.ipynb`** — 🚀 Phase 2: 1-click advanced upgrades (Walk-Forward CV → Optuna → Risk-Managed Backtest → SHAP). Config flags: `RUN_WALK_FORWARD`, `RUN_OPTUNA`, `N_OPTUNA_TRIALS`, `RUN_RISK_MANAGED`, `USE_SHAP`, `SAVE_TO_DRIVE`, `LOAD_FROM_DRIVE`.
 - **Notebooks 01–05** (Phase 1): run sequentially in the SAME session, or use Master_Pipeline instead.
 - **Notebooks 06–10** (Phase 2): walk-forward CV, FinBERT inference, Optuna search, risk-managed backtest, SHAP interpretability.
 
