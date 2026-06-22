@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # SHAP value computation
 # ---------------------------------------------------------------------
 def compute_shap_values(
-    model,
+    model: "tf.keras.Model",
     background: np.ndarray,
     test_data: np.ndarray,
     feature_names: list[str],
@@ -109,7 +109,8 @@ def compute_shap_values(
     ts_2d = test_data.squeeze(axis=1) if test_data.ndim == 3 else test_data
 
     # Prediction wrapper: reshape 2D → 3D, call model, flatten output
-    def predict_fn(x_2d):
+    def predict_fn(x_2d: np.ndarray) -> np.ndarray:
+        """Wrap the Keras model so KernelExplainer can call it with 2D input."""
         x_3d = x_2d.reshape(-1, 1, n_features)
         return model.predict(x_3d, verbose=0).ravel()
 
@@ -251,7 +252,7 @@ def plot_regime_comparison(
 # End-to-end runner
 # ---------------------------------------------------------------------
 def run_shap_analysis(
-    model,
+    model: "tf.keras.Model",
     train_x: np.ndarray,
     test_x: np.ndarray,
     feature_names: list[str],

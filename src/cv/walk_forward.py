@@ -53,6 +53,7 @@ class WalkForwardFold:
     val_idx: np.ndarray = field(repr=False)
 
     def __repr__(self) -> str:
+        """Return a human-readable one-line summary of the fold boundaries."""
         return (
             f"Fold {self.fold_num}: "
             f"train=[{self.train_start}:{self.train_end}] "
@@ -226,9 +227,11 @@ class WalkForwardResult:
     n_folds: int
 
     def to_dataframe(self) -> pd.DataFrame:
+        """Return per-fold metrics as a pandas DataFrame (one row per fold)."""
         return pd.DataFrame(self.fold_metrics)
 
     def summary(self) -> str:
+        """Return a multi-line string summarizing the aggregated OOF metrics."""
         return (
             f"Walk-Forward CV — {self.n_folds} folds\n"
             f"  OOF Sharpe   : {self.oof_sharpe_mean:+.3f} ± {self.oof_sharpe_std:.3f}\n"

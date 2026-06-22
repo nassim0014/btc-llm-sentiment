@@ -85,7 +85,8 @@ def make_model_factory(hp: dict, n_features: int):
 
     This is the interface expected by `run_walk_forward(model_factory=...)`.
     """
-    def factory():
+    def factory() -> "tf.keras.Model":
+        """Build and return a fresh compiled LSTM model from the captured hyperparameters."""
         return build_lstm_with_params(
             lr=hp["lr"],
             units=hp["units"],
