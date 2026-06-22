@@ -1,0 +1,6 @@
+strategy,final_portfolio_value,sharpe_ratio,sortino_ratio,max_drawdown,win_rate,n_trades,threshold
+baseline,1.6472,3.1071,5.9353,-0.1079,0.5364,1,0.49999999999999994
+lightweight,1.0439,0.4759,0.6191,-0.1687,0.2364,13,0.49999999999999994
+regularized,1.0,0.0,0.0,0.0,0.0,0,0.5499999999999999
+bilstm,1.2052,2.1804,3.7299,-0.0406,0.1273,12,0.49999999999999994
+buy_hold,1.6156,2.9633,5.6554,-0.1272,0.5455,1,
