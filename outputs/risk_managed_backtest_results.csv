@@ -1,2 +1,2 @@
 final_portfolio_value,total_return_pct,annualized_sharpe,annualized_sortino,max_drawdown_pct,win_rate_pct,n_trades,circuit_breaker_triggered,breaker_trigger_day,avg_position_size,max_position_size
-0.9995,-0.05,1.8946,2.7099,-0.99,30.91,51,False,,0.0265,0.1278
+1.0096,0.96,1.4829,2.0544,-0.68,41.82,54,False,,0.0346,0.097
