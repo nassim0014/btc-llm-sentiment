@@ -23,7 +23,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
 </p>
 
-Built by **Nassim K.** — Business Analyst, Co-Founder of KINZ, SMU Alum. This project blends Data Analytics, Machine Learning, and secure data handling into a single reproducible pipeline.
+A reproducible end-to-end pipeline combining natural-language sentiment signals with deep-learning price forecasting and production-grade risk management.
 
 ---
 
@@ -405,8 +405,19 @@ pytest tests/ -v
 
 ## License
 
-MIT — see `LICENSE` (inherits from repo root).
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-Maintained by **Nassim K.** — built with rigor, deployed with care.
+## Citation
+
+If this code contributes to published research, please cite the repository.
+
+```bibtex
+@misc{btc-llm-sentiment,
+  title  = {BTC Sentiment-Driven LSTM Trading Pipeline},
+  author = {Nassim K.},
+  year   = {2026},
+  url    = {https://github.com/nassim0014/btc-llm-sentiment}
+}
+```
