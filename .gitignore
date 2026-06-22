@@ -26,6 +26,7 @@ Thumbs.db
 
 # PyTorch / TensorFlow model caches
 *.ker
+*.keras
 *.h5
 *.pkl
 !notebooks/interim/.gitkeep
