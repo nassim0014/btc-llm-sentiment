@@ -239,6 +239,26 @@ See `outputs/shap_summary.png` (global beeswarm) and `outputs/shap_regime_compar
 
 ## Reproducibility
 
+### Option A — Run in Google Colab (zero setup)
+
+Every notebook (01–05) ships with a **Universal Environment Setup** cell as its first code cell. In Colab, this cell automatically:
+
+1. Clones the repository into `/content/btc-llm-sentiment/`
+2. Installs `requirements.txt` via `!pip install -q`
+3. Sets the working directory to the project root
+
+So the workflow is simply:
+
+1. Open https://colab.research.google.com
+2. File → Open notebook → GitHub → paste `nassim0014/btc-llm-sentiment`
+3. Pick any notebook (01–05)
+4. Run the first cell → it bootstraps everything
+5. Run the rest of the notebook top-to-bottom
+
+For the full FinBERT inference path on a free T4 GPU, open `notebooks/07_finbert_inference.ipynb` in Colab.
+
+### Option B — Run locally
+
 ```bash
 # Clone
 git clone https://github.com/nassim0014/btc-llm-sentiment.git
@@ -262,6 +282,8 @@ python3 scripts/run_shap_analysis.py             # SHAP plots
 python3 scripts/run_pipeline.py                  # ~5-7 min on T4 GPU
 ```
 
+When running notebooks locally, the same setup cell traverses up to 6 directory levels looking for `requirements.txt` as the project-root marker — so the notebook works whether you open it from `notebooks/`, the project root, or anywhere inside the repo.
+
 ---
 
 ## How to Run
@@ -279,8 +301,13 @@ python3 scripts/run_risk_managed_backtest.py
 python3 scripts/run_shap_analysis.py
 ```
 
-### Interactive notebooks
-Open notebooks 01–10 in order. Notebooks 06–10 require the Phase 2 `src/` package.
+### Interactive notebooks (Colab or local)
+Open notebooks 01–10 in order. Each notebook's first code cell auto-detects the environment (Colab vs local) and bootstraps accordingly — no manual setup required.
+
+- **Notebooks 01–05** (Phase 1): data loading, LLM sentiment, feature engineering, LSTM fine-tuning, evaluation + backtesting
+- **Notebooks 06–10** (Phase 2): walk-forward CV, FinBERT inference, Optuna search, risk-managed backtest, SHAP interpretability
+
+> **Note:** Notebooks 06–10 use the Phase 2 `src/` package and require running `scripts/generate_interim_features.py` first to produce the interim feature bundle. The setup cell handles `sys.path` so `from src.cv.walk_forward import ...` works in both Colab and local environments.
 
 ---
 
