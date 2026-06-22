@@ -47,6 +47,7 @@ class RiskManagedResult:
     metrics: dict
 
     def to_summary_dict(self) -> dict:
+        """Return a flat dict of headline metrics for CSV serialization."""
         return {
             "final_portfolio_value": round(float(self.equity[-1]), 4),
             "total_return_pct": round((float(self.equity[-1]) - 1) * 100, 2),
@@ -166,7 +167,7 @@ def risk_managed_backtest(
         # Daily return = position * market return - trade cost
         daily_ret = pos_yesterday * rets[t-1] - trade_cost
         daily_returns[t] = daily_ret
-        equity[t] = equity[t] * (1 + daily_ret)
+        equity[t] = equity[t-1] * (1 + daily_ret)
         positions[t] = pos_today
 
         # Check drawdown

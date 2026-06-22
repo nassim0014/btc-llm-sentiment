@@ -52,8 +52,19 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 # ---------------------------------------------------------------------
 # Search space
 # ---------------------------------------------------------------------
-def sample_hyperparameters(trial) -> dict:
-    """Sample one set of hyperparameters from the Optuna search space."""
+def sample_hyperparameters(trial: "optuna.Trial") -> dict:
+    """Sample one set of hyperparameters from the Optuna search space.
+
+    Parameters
+    ----------
+    trial : optuna.Trial
+        The active Optuna trial object.
+
+    Returns
+    -------
+    dict
+        Sampled hyperparameters: lr (float), units (int), dropout (float), num_layers (int).
+    """
     return {
         "lr": trial.suggest_float("lr", 1e-4, 1e-2, log=True),
         "units": trial.suggest_categorical("units", [32, 64, 128]),
@@ -66,7 +77,7 @@ def sample_hyperparameters(trial) -> dict:
 # Objective — walk-forward CV with per-fold pruning
 # ---------------------------------------------------------------------
 def optuna_objective(
-    trial,
+    trial: "optuna.Trial",
     X: np.ndarray,
     y: np.ndarray,
     close: np.ndarray,
