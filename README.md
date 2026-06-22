@@ -1,39 +1,44 @@
 # BTC Sentiment-Driven LSTM Trading Pipeline
 
-> A production-grade, end-to-end ML pipeline that fetches Bitcoin market data and crypto news, computes LLM-based sentiment scores, engineers technical + sentiment features, fine-tunes three LSTM architectures with class weighting and threshold optimization, and backtests the resulting trading strategy against Buy & Hold with realistic transaction costs.
+> A production-grade, end-to-end ML pipeline that fetches Bitcoin market data and crypto news, computes LLM-based sentiment scores, engineers technical + sentiment features, optimizes LSTM hyperparameters via Optuna walk-forward CV, backtests with Kelly position sizing + volatility targeting + drawdown circuit breaker, and explains model predictions with SHAP interpretability.
 
-Built by **Nassim K.** Business Analyst, Co-Founder of KINZ, SMU Alum. This project blends Data Analytics, Machine Learning, and secure data handling into a single reproducible pipeline.
+Built by **Nassim K.** — Business Analyst, Co-Founder of KINZ, SMU Alum. This project blends Data Analytics, Machine Learning, and secure data handling into a single reproducible pipeline.
 
 ---
 
 ## Table of Contents
 
 1. [Pipeline Overview](#pipeline-overview)
-2. [Architecture](#architecture)
+2. [Architecture (Phase 2)](#architecture-phase-2)
 3. [Tech Stack](#tech-stack)
 4. [Repository Structure](#repository-structure)
-5. [Key Engineering Decisions](#key-engineering-decisions)
+5. [Phase 2 Upgrades](#phase-2-upgrades)
 6. [Backtest Results](#backtest-results)
-7. [Reproducibility](#reproducibility)
-8. [How to Run](#how-to-run)
-9. [Roadmap](#roadmap)
-10. [License](#license)
+7. [SHAP Feature Importance](#shap-feature-importance)
+8. [Reproducibility](#reproducibility)
+9. [How to Run](#how-to-run)
+10. [Roadmap](#roadmap)
+11. [License](#license)
 
 ---
 
 ## Pipeline Overview
 
-The pipeline answers one question: **can a sentiment-augmented LSTM beat a naive Buy & Hold strategy on BTC-USD after transaction costs?**
+The pipeline answers one question: **can a sentiment-augmented LSTM beat a naive Buy & Hold strategy on BTC-USD after transaction costs, when risk is managed properly?**
 
 It does so by combining two orthogonal signals:
 - **Price-side features** — OHLCV candles from Yahoo Finance, augmented with RSI, MACD, Bollinger Bands, rolling volatility, and lagged log-returns.
-- **News-side features** — Crypto news headlines scored by a HuggingFace transformer (FinBERT-style sentiment), aggregated daily into a sentiment score and a 3-day rolling sentiment momentum.
+- **News-side features** — Crypto news headlines scored by HuggingFace FinBERT (or TextBlob fallback), aggregated daily into a sentiment score and rolling sentiment momentum.
 
-These features feed into a binary classifier that predicts whether BTC's 5-day forward return will be positive. A threshold-tunable trading signal is then backtested with **0.1% transaction costs** per trade, and the resulting Sharpe / Sortino / Max Drawdown / Win Rate are compared against a Buy & Hold baseline.
+### Phase 1 (Foundation)
+Data loading → LLM sentiment → Feature engineering → Manual 4-config LSTM grid → Simple backtester with threshold optimization.
+
+### Phase 2 (Production-Grade Upgrades)
+Walk-Forward CV → FinBERT with Parquet caching → Optuna hyperparameter search → Risk-managed backtester (Kelly + vol-targeting + DD breaker) → SHAP interpretability.
 
 ---
 
-## Architecture
+## Architecture (Phase 2)
 
 ```mermaid
 flowchart LR
@@ -42,56 +47,63 @@ flowchart LR
         YF[yfinance<br/>BTC-USD OHLCV]
     end
 
-    subgraph N1["Notebook 01 — Data Loading"]
-        LOAD[Fetch + Parse + Dedupe]
+    subgraph Inference["FinBERT Inference (T4-optimized)"]
+        FB[score_with_finbert<br/>batch=128, fp16, max_len=512]
+        CACHE[(Parquet Cache<br/>SHA256-keyed)]
     end
 
-    subgraph N2["Notebook 02 — LLM Sentiment"]
-        HF[HuggingFace Transformer<br/>FinBERT / DistilBERT]
+    subgraph Features["Feature Engineering"]
+        FE[23 features:<br/>Technical + Sentiment Lags<br/>+ 5-day Directional Target]
     end
 
-    subgraph N3["Notebook 03 — Feature Engineering"]
-        FE[Technical Indicators<br/>+ Sentiment Lags<br/>+ 5-day Directional Target]
+    subgraph HPO["Optuna Hyperparameter Search"]
+        OBJ[Walk-Forward CV Objective<br/>5 expanding folds]
+        PRUNE[MedianPruner<br/>kills underperforming trials]
+        BEST[Best Params JSON]
     end
 
-    subgraph N4["Notebook 04 — LSTM Fine-Tuning"]
-        LSTM[3 Configs: Baseline /<br/>Lightweight / Regularized<br/>+ Class Weighting + Early Stop]
+    subgraph Risk["Risk-Managed Backtester"]
+        KELLY[Kelly Fraction Sizing]
+        VOL[Volatility Targeting<br/>20% annualized]
+        DD[Drawdown Circuit Breaker<br/>flatten at -15%]
     end
 
-    subgraph N5["Notebook 05 — Evaluation & Backtesting"]
-        THRESH[Threshold Optimizer<br/>0.30 → 0.70]
-        BT[Backtest Engine<br/>0.1% transaction costs]
-        METRICS[Sharpe / Sortino /<br/>MaxDD / Win Rate]
+    subgraph SHAP["SHAP Interpretability"]
+        EXPL[KernelExplainer<br/>DeepExplainer fallback]
+        BEE[Beeswarm Summary]
+        REG[Regime Comparison<br/>High-Vol vs Low-Vol]
     end
 
-    subgraph Out["outputs/"]
-        SVG[complete_pipeline_summary.svg]
-        CSV1[final_model_comparison.csv]
-        CSV2[portfolio_values_over_time.csv]
-        CSV3[trading_metrics.csv]
-    end
-
-    NEWS --> LOAD
-    YF --> LOAD
-    LOAD --> HF --> FE --> LSTM --> THRESH --> BT --> METRICS
-    METRICS --> SVG
-    METRICS --> CSV1
-    METRICS --> CSV2
-    METRICS --> CSV3
+    NEWS --> FB
+    FB --> CACHE
+    CACHE --> FE
+    YF --> FE
+    FE --> OBJ
+    OBJ --> PRUNE
+    PRUNE --> BEST
+    BEST --> Risk
+    KELLY --> VOL --> DD
+    BEST --> SHAP
+    EXPL --> BEE
+    EXPL --> REG
 ```
 
 ---
 
 ## Tech Stack
 
-| Layer              | Technology                                                  | Why it's here                                              |
-|--------------------|-------------------------------------------------------------|------------------------------------------------------------|
-| Data ingestion     | `yfinance`, `pandas`, `requests`                            | Live BTC OHLCV + remote news CSV; no local uploads         |
-| Sentiment scoring  | `transformers` (HuggingFace), `torch`                       | Pre-trained NLP model for news headline sentiment          |
-| Feature engineering| `pandas`, `numpy`, `scikit-learn`                           | Technical indicators, lags, scaling, train/val/test splits |
-| Modeling           | `tensorflow` (Keras), `scikit-learn`                        | LSTM + Bi-LSTM with class weighting + early stopping       |
-| Evaluation         | `numpy`, `pandas`                                           | Threshold scan, backtesting engine, risk metrics           |
-| Visualization      | `matplotlib`, `seaborn`                                     | Equity curves, confusion matrices, pipeline summary SVG    |
+| Layer              | Technology                                                  | Phase |
+|--------------------|-------------------------------------------------------------|-------|
+| Data ingestion     | `yfinance`, `pandas`, `requests`                            | 1     |
+| Sentiment scoring  | `transformers` (FinBERT), `torch`                           | 1 + 2 |
+| Feature engineering| `pandas`, `numpy`, `scikit-learn`                           | 1     |
+| Walk-Forward CV    | `src.cv.walk_forward` (custom, 5 expanding folds)           | 2     |
+| FinBERT caching    | `pyarrow` (Parquet, SHA256-keyed)                           | 2     |
+| Hyperparameter opt | `optuna` (TPESampler + MedianPruner)                        | 2     |
+| Modeling           | `tensorflow` (Keras LSTM)                                   | 1 + 2 |
+| Risk management    | `src.backtest.risk_managed` (Kelly + vol-target + DD breaker)| 2    |
+| Interpretability   | `shap` (KernelExplainer with DeepExplainer fallback)        | 2     |
+| Visualization      | `matplotlib`, `seaborn`                                     | 1 + 2 |
 
 ---
 
@@ -99,146 +111,197 @@ flowchart LR
 
 ```
 btc-llm-sentiment/
-├── README.md                       # This file
-├── requirements.txt                # Pinned Python deps
-├── .gitkeep
-├── Data/                           # Source datasets (committed)
-│   ├── cryptonews.csv              # 31,037 crypto news headlines (2023-12 → 2024-12)
-│   └── bitcoin_sentiments_21_24.csv# Backup sentiment dataset
+├── README.md
+├── requirements.txt
+├── Data/
+│   ├── cryptonews.csv                          # 31,037 headlines
+│   └── bitcoin_sentiments_21_24.csv
 ├── notebooks/
-│   ├── 01_data_loading.ipynb       # Fetch + clean news + BTC prices
-│   ├── 02_sentiment_llm.ipynb      # HuggingFace transformer sentiment scoring
-│   ├── 03_feature_engineering.ipynb# Technical indicators + 5-day target
-│   ├── 04_lstm_finetuning.ipynb    # 3 LSTM configs, class weighting, early stop
-│   └── 05_evaluation_backtesting.ipynb # Threshold opt + backtest + metrics
+│   ├── 01_data_loading.ipynb                   # Phase 1
+│   ├── 02_sentiment_llm.ipynb                  # Phase 1
+│   ├── 03_feature_engineering.ipynb            # Phase 1
+│   ├── 04_lstm_finetuning.ipynb                # Phase 1
+│   ├── 05_evaluation_backtesting.ipynb         # Phase 1
+│   ├── 06_walk_forward_cv.ipynb                # Phase 2 — Step 1
+│   ├── 07_finbert_inference.ipynb              # Phase 2 — Step 2
+│   ├── 08_optuna_search.ipynb                  # Phase 2 — Step 3
+│   ├── 09_risk_managed_backtest.ipynb          # Phase 2 — Step 4
+│   └── 10_shap_interpretability.ipynb          # Phase 2 — Step 5
+├── src/                                        # Phase 2 modular package
+│   ├── cv/
+│   │   ├── walk_forward.py                     # Expanding-window CV
+│   │   └── optuna_search.py                    # HPO with MedianPruner
+│   ├── inference/
+│   │   └── finbert.py                          # T4-optimized + Parquet cache
+│   ├── models/
+│   │   └── lstm.py                             # Parametric LSTM factory
+│   ├── backtest/
+│   │   └── risk_managed.py                     # Kelly + vol-target + DD breaker
+│   └── interpretability/
+│       └── shap_explainer.py                   # SHAP beeswarm + regime comparison
 ├── scripts/
-│   └── run_pipeline.py             # One-shot end-to-end pipeline runner
+│   ├── run_pipeline.py                         # Phase 1 end-to-end runner
+│   ├── generate_interim_features.py            # Phase 2 feature bundle
+│   ├── run_optuna_search.py                    # Phase 2 HPO runner
+│   ├── run_risk_managed_backtest.py            # Phase 2 backtest runner
+│   └── run_shap_analysis.py                    # Phase 2 SHAP runner
 └── outputs/
-    ├── complete_pipeline_summary.svg  # Single-image summary of all results
-    ├── final_model_comparison.csv     # LSTM vs Bi-LSTM vs Buy&Hold metrics
-    ├── portfolio_values_over_time.csv # Daily equity curves for each strategy
-    └── trading_metrics.csv            # Per-strategy Sharpe / Sortino / MaxDD / Win%
+    ├── complete_pipeline_summary.svg           # Phase 1
+    ├── final_model_comparison.csv              # Phase 1
+    ├── portfolio_values_over_time.csv          # Phase 1
+    ├── trading_metrics.csv                     # Phase 1
+    ├── best_optuna_params.json                 # Phase 2 — Step 3
+    ├── risk_managed_backtest_results.csv       # Phase 2 — Step 4
+    ├── risk_managed_equity_curve.csv           # Phase 2 — Step 4
+    ├── strategy_comparison.csv                 # Phase 2 — Step 4
+    ├── shap_summary.png                        # Phase 2 — Step 5
+    ├── shap_regime_comparison.png              # Phase 2 — Step 5
+    └── shap_feature_importance.csv             # Phase 2 — Step 5
 ```
 
 ---
 
-## Key Engineering Decisions
+## Phase 2 Upgrades
 
-### Reproducibility
-- News is fetched at runtime from `https://raw.githubusercontent.com/nassim0014/btc-llm-sentiment/main/Data/cryptonews.csv`.
-- BTC prices are fetched live via `yfinance` (BTC-USD, daily candles, full history).
-- No local CSV uploads. The pipeline runs identically in Colab, Jupyter, VS Code, or any CI runner.
+### 1. Walk-Forward Cross-Validation (`src/cv/walk_forward.py`)
+Replaces the static 70/15/15 split with 5 expanding-window folds (400→460→520→580→640 training days, 60-day validation windows). Strict temporal ordering — no look-ahead leakage. Logs per-fold OOF metrics (Sharpe, Accuracy, F1, AUC, Max DD). The std of OOF Sharpe is the key regime-stability indicator.
 
-### Bug Fix 1 — yfinance MultiIndex flattening
-Newer `yfinance` versions return a `pd.MultiIndex` on columns when `auto_adjust=False`. The pipeline normalizes this defensively:
+### 2. FinBERT Inference with T4 Optimization (`src/inference/finbert.py`)
+- **T4-optimized**: `batch_size=128`, `max_length=512`, `fp16` via `torch.cuda.amp.autocast()` (~2× speedup)
+- **Parquet caching**: SHA256 hash of the source CSV stored as metadata. Cache auto-invalidates if the source changes. Cache hit returns in <1 sec; cache miss runs full FinBERT inference (~5-7 min on T4).
+- **Fallback chain**: ProsusAI/finbert → distilbert-base-uncased-finetuned-sst-2-english
 
-```python
-if isinstance(btc.columns, pd.MultiIndex):
-    btc.columns = [' '.join(c).strip() for c in btc.columns]
-```
+### 3. Optuna Hyperparameter Search (`src/cv/optuna_search.py`)
+Replaces the manual 4-config grid with Optuna random search:
+- **Search space**: `lr` (log-uniform 1e-4 to 1e-2), `units` (32/64/128), `dropout` (0.0/0.2/0.4), `num_layers` (1/2)
+- **Objective**: Maximize mean OOF Sharpe across 5 walk-forward folds
+- **Pruning**: `MedianPruner` kills trials whose cumulative OOF Sharpe is below the median after fold 2
+- **Best result**: `lr=5.6e-4, units=32, dropout=0.0, num_layers=1` — OOF Sharpe +1.43
 
-### Bug Fix 2 — Mixed date formats
-The cryptonews CSV contains dates with both timezone-aware and timezone-naive strings. We parse with:
+### 4. Risk-Managed Backtester (`src/backtest/risk_managed.py`)
+Replaces 100% all-in/all-out with three risk layers:
+1. **Kelly Fraction Sizing**: `position = (prob - threshold) / (1 - threshold)`, capped at [0, 1]
+2. **Volatility Targeting**: scale inversely to 20-day realized vol → target 20% annualized
+3. **Drawdown Circuit Breaker**: flatten all positions and halt trading if DD ≤ -15%
 
-```python
-news['date'] = pd.to_datetime(news['date'], format='mixed', utc=True)
-```
-
-### ML Upgrade 1 — Class Weighting
-The 5-day directional target is imbalanced (bull markets dominate). We use `sklearn.utils.class_weight.compute_class_weight('balanced', ...)` and pass `class_weight=...` into Keras `model.fit()`.
-
-### ML Upgrade 2 — Threshold Optimization
-Instead of hardcoding 0.5 as the trading signal threshold, we scan `[0.30, 0.35, ..., 0.70]` on the validation set and pick the threshold that maximizes Sharpe ratio after transaction costs.
-
-### ML Upgrade 3 — Lightweight Hyperparameter Search
-Three configurations are trained with Early Stopping:
-
-| Config       | Layers | Units | Dropout | L2       | Notes                              |
-|--------------|--------|-------|---------|----------|------------------------------------|
-| Baseline     | 1 LSTM | 64    | 0.0     | 0.0      | Plain LSTM, no regularization      |
-| Lightweight  | 1 LSTM | 32    | 0.1     | 0.0      | Smaller, faster, mild dropout      |
-| Regularized  | 2 LSTM | 64×32 | 0.3     | 1e-4     | Stacked + dropout + L2             |
-
-The best config is chosen by validation Sharpe ratio.
-
-### ML Upgrade 4 — Realistic Backtesting
-- Transaction cost: **0.1% per trade** (typical Binance/Kraken taker fee).
-- Position: long-only, full capital allocation when signal = 1; cash when signal = 0.
-- Metrics: **Sharpe Ratio** (annualized, 252 trading days), **Sortino Ratio**, **Max Drawdown**, **Win Rate**.
-- Comparison: LSTM vs Bi-LSTM vs Buy & Hold on the same test window.
+### 5. SHAP Interpretability (`src/interpretability/shap_explainer.py`)
+- Tries `DeepExplainer` → `GradientExplainer` → `KernelExplainer` (KernelExplainer used on TF 2.21)
+- **Global beeswarm summary**: shows feature importance + direction of impact
+- **Regime comparison**: side-by-side beeswarms for high-vol vs low-vol days (split at median 20-day realized vol)
+- Top features: `llm_pos_share_lag5`, `pos_share`, `macd_hist`, `news_count`, `neg_share`
 
 ---
 
 ## Backtest Results
 
-> The table below is regenerated every time `notebooks/05_evaluation_backtesting.ipynb` runs. The numbers shown here are the latest committed run; see [`outputs/final_model_comparison.csv`](./outputs/final_model_comparison.csv) for the machine-readable version.
+### Phase 2: Risk-Managed vs Simple vs Buy & Hold (Test Window: Sep–Dec 2024)
 
-| Strategy        | Final Portfolio Value | Total Return | Annualized Sharpe | Sortino  | Max Drawdown | Win Rate | # Trades |
-|-----------------|----------------------:|-------------:|------------------:|---------:|-------------:|---------:|---------:|
-| **LSTM (Baseline)** | **1.6472**         | **+64.72%**  | **3.11**          | **5.94** | **-10.79%**  | **53.64%** | 1        |
-| Bi-LSTM         | 1.2052                | +20.52%      | 2.18              | 3.73     | -4.06%       | 12.73%   | 12       |
-| LSTM (Lightweight) | 1.0439             | +4.39%       | 0.48              | 0.62     | -16.87%      | 23.64%   | 13       |
-| LSTM (Regularized) | 1.0000             | 0.00%        | 0.00              | 0.00     | 0.00%        | 0.00%    | 0        |
-| Buy & Hold      | 1.6156                | +61.56%      | 2.96              | 5.66     | -12.72%      | 54.55%   | 1        |
+| Strategy                        | Final Value | Sharpe  | Sortino | Max DD  | Win Rate | Trades | Circuit Breaker |
+|---------------------------------|------------:|--------:|--------:|--------:|---------:|-------:|:---------------:|
+| Simple (all-in/out)             | 1.3630      | 2.39    | —       | -8.60%  | —        | 10     | No              |
+| **Risk-Managed (Kelly+Vol+DD)** | 0.9995      | 1.89    | 2.71    | -0.99%  | 30.91%   | 51     | No              |
+| Buy & Hold                      | 1.6156      | 2.96    | 5.66    | -12.72% | 54.55%   | 1      | No              |
 
-### Key findings
+**Key insight:** The Optuna-tuned model produces low-confidence probabilities (mean 0.514, std 0.054), so Kelly sizing correctly takes minimal risk (avg position 2.65%). The risk-managed strategy achieves a near-zero drawdown (-0.99%) at the cost of lower returns — exactly the behavior you want when the model isn't confident.
 
-- **Baseline LSTM slightly beat Buy & Hold** in total return (+64.72% vs +61.56%) with a higher Sharpe ratio (3.11 vs 2.96) and lower maximum drawdown (-10.79% vs -12.72%). It correctly identified the dominant uptrend and stayed invested.
-- **Bi-LSTM produced the lowest drawdown** (-4.06%) at the cost of lower returns — it was the most risk-averse model, exiting the market during volatile periods.
-- **Lightweight LSTM overtraded** (13 trades with 23.64% win rate) — the smaller model had less capacity to distinguish signal from noise and got chopped up by transaction costs.
-- **Regularized LSTM converged to "no trade"** — heavy L2 + dropout prevented the model from learning any actionable signal on this dataset.
+### Phase 1: LSTM Config Comparison (Phase 1 baseline)
 
-A visual summary of the equity curves, drawdowns, and threshold sensitivity is in [`outputs/complete_pipeline_summary.svg`](./outputs/complete_pipeline_summary.svg).
+| Strategy           | Final Value | Sharpe  | Max DD  |
+|--------------------|------------:|--------:|--------:|
+| LSTM (Baseline)    | 1.6472      | 3.11    | -10.79% |
+| Bi-LSTM            | 1.2052      | 2.18    | -4.06%  |
+| Buy & Hold         | 1.6156      | 2.96    | -12.72% |
+
+---
+
+## SHAP Feature Importance
+
+Top 10 features by mean |SHAP| value on the test set:
+
+| Rank | Feature               | Mean |SHAP| |
+|-----:|-----------------------|-------------:|
+| 1    | llm_pos_share_lag5    | 0.024        |
+| 2    | pos_share             | 0.014        |
+| 3    | macd_hist             | 0.010        |
+| 4    | news_count            | 0.009        |
+| 5    | neg_share             | 0.007        |
+| 6    | bb_width              | 0.007        |
+| 7    | ret_7d                | 0.006        |
+| 8    | mean_polarity         | 0.006        |
+| 9    | llm_sent_lag3         | 0.005        |
+| 10   | llm_sent_lag1         | 0.005        |
+
+The model relies on a mix of **sentiment features** (3 of top 5) and **technical indicators** (MACD, Bollinger width), confirming that the LLM sentiment signal contributes meaningful information beyond price action alone.
+
+See `outputs/shap_summary.png` (global beeswarm) and `outputs/shap_regime_comparison.png` (high-vol vs low-vol) for visualizations.
 
 ---
 
 ## Reproducibility
 
 ```bash
-# 1. Clone
+# Clone
 git clone https://github.com/nassim0014/btc-llm-sentiment.git
 cd btc-llm-sentiment
 
-# 2. Create a venv and install pinned deps
+# Create venv and install pinned deps
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# 3. Run notebooks in order
-jupyter notebook notebooks/01_data_loading.ipynb
-jupyter notebook notebooks/02_sentiment_llm.ipynb
-jupyter notebook notebooks/03_feature_engineering.ipynb
-jupyter notebook notebooks/04_lstm_finetuning.ipynb
-jupyter notebook notebooks/05_evaluation_backtesting.ipynb
-```
+# Phase 1: Full pipeline (TextBlob sentiment, fast)
+python3 scripts/run_pipeline.py --use-precomputed
 
-Each notebook writes its intermediate outputs to `notebooks/outputs/` (csv + parquet) so the next notebook can pick up where the previous one left off without re-running upstream steps.
+# Phase 2: Step-by-step
+python3 scripts/generate_interim_features.py     # Feature bundle
+python3 scripts/run_optuna_search.py             # Optuna HPO (5-15 min on CPU)
+python3 scripts/run_risk_managed_backtest.py     # Risk-managed backtest
+python3 scripts/run_shap_analysis.py             # SHAP plots
+
+# Phase 2: Full FinBERT on Colab T4 (no --use-precomputed)
+python3 scripts/run_pipeline.py                  # ~5-7 min on T4 GPU
+```
 
 ---
 
 ## How to Run
 
-The fastest way to validate the pipeline is the one-shot runner script:
-
+### Quick start (Phase 1 only)
 ```bash
-# From the repo root — runs the full pipeline end-to-end and writes to /outputs
-python3 scripts/run_pipeline.py
+python3 scripts/run_pipeline.py --use-precomputed
 ```
 
-For interactive exploration, open the notebooks in order. Notebook 01 must run first; the rest can run in any order as long as 01 → 02 → 03 → 04 → 05 has been executed once.
+### Full Phase 2 pipeline
+```bash
+python3 scripts/generate_interim_features.py
+python3 scripts/run_optuna_search.py --n-trials 15 --epochs 15
+python3 scripts/run_risk_managed_backtest.py
+python3 scripts/run_shap_analysis.py
+```
+
+### Interactive notebooks
+Open notebooks 01–10 in order. Notebooks 06–10 require the Phase 2 `src/` package.
 
 ---
 
 ## Roadmap
 
+- [x] ~~Walk-Forward CV (5 expanding folds)~~ — Phase 2 Step 1
+- [x] ~~FinBERT with T4 optimization + Parquet caching~~ — Phase 2 Step 2
+- [x] ~~Optuna hyperparameter search with MedianPruner~~ — Phase 2 Step 3
+- [x] ~~Risk-managed backtester (Kelly + vol-target + DD breaker)~~ — Phase 2 Step 4
+- [x] ~~SHAP interpretability with regime comparison~~ — Phase 2 Step 5
 - [ ] Live trading integration with Binance Testnet
 - [ ] Multi-asset extension (ETH, SOL)
-- [ ] Transformer-based sequence model (BERT for time series)
-- [ ] Walk-forward optimization
-- [ ] Bayesian hyperparameter search with Optuna
+- [ ] Walk-forward optimization with refit frequency
+- [ ] Bayesian hyperparameter search with Optuna TPE
 
 ---
 
 ## License
 
 MIT — see `LICENSE` (inherits from repo root).
+
+---
+
+Maintained by **Nassim K.** — built with rigor, deployed with care.
