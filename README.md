@@ -2,7 +2,7 @@
 
 > A production-grade, end-to-end ML pipeline that fetches Bitcoin market data and crypto news, computes LLM-based sentiment scores, engineers technical + sentiment features, fine-tunes three LSTM architectures with class weighting and threshold optimization, and backtests the resulting trading strategy against Buy & Hold with realistic transaction costs.
 
-Built by **Nassim K.** — Business Analyst, Co-Founder of KINZ, SMU Alum. This project blends Data Analytics, Machine Learning, and secure data handling into a single reproducible pipeline.
+Built by **Nassim K.** Business Analyst, Co-Founder of KINZ, SMU Alum. This project blends Data Analytics, Machine Learning, and secure data handling into a single reproducible pipeline.
 
 ---
 
