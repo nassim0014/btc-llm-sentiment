@@ -117,10 +117,11 @@ btc-llm-sentiment/
 │   ├── cryptonews.csv                          # 31,037 headlines
 │   └── bitcoin_sentiments_21_24.csv
 ├── notebooks/
+│   ├── Master_Pipeline.ipynb                   # 🚀 1-click full pipeline (01-05 combined)
 │   ├── 01_data_loading.ipynb                   # Phase 1
-│   ├── 02_sentiment_llm.ipynb                  # Phase 1
+│   ├── 02_sentiment_llm.ipynb                  # Phase 1 (+ memory cleanup)
 │   ├── 03_feature_engineering.ipynb            # Phase 1
-│   ├── 04_lstm_finetuning.ipynb                # Phase 1
+│   ├── 04_lstm_finetuning.ipynb                # Phase 1 (+ memory cleanup)
 │   ├── 05_evaluation_backtesting.ipynb         # Phase 1
 │   ├── 06_walk_forward_cv.ipynb                # Phase 2 — Step 1
 │   ├── 07_finbert_inference.ipynb              # Phase 2 — Step 2
@@ -288,12 +289,27 @@ When running notebooks locally, the same setup cell traverses up to 6 directory 
 
 ## How to Run
 
-### Quick start (Phase 1 only)
+### ⚠️ Google Colab Session Limits — Read First
+
+Google Colab enforces two hard constraints that affect how you should run this pipeline:
+
+1. **Ephemeral storage**: When a Colab session closes, the local filesystem (`/content/`) is wiped. If you run Notebook 04 (which saves `.keras` models and `.pkl` predictions to `notebooks/interim/`), close the session, then open Notebook 05 in a new session, **Notebook 05 will fail** because the interim files no longer exist.
+2. **Maximum simultaneous sessions + VRAM/RAM limits**: Free Colab allows a small number of concurrent sessions and ~12 GB RAM / ~16 GB T4 VRAM. Keeping multiple notebooks open at once, or running heavy stages (LLM inference in Notebook 02, LSTM training in Notebook 04) without releasing memory, will trigger the "Maximum number of running sessions reached" error or Out-Of-Memory (OOM) crashes.
+
+### Recommended Execution Flows
+
+**Flow A — 1-Click (recommended for Colab):** Open `notebooks/Master_Pipeline.ipynb` in Colab and run all cells. This single notebook executes Stages 1-5 (data → sentiment → features → LSTM → backtest) in one session, with built-in memory cleanup between stages. No cross-session dependency, no session limit issues.
+
+**Flow B — Sequential in the SAME session:** Open Notebook 01 in Colab, run it, then open Notebooks 02-05 in the same session via File → Open. All interim artifacts persist in `/content/btc-llm-sentiment/notebooks/interim/` as long as the session stays alive. Each notebook has a memory cleanup cell at the end (02 releases the LLM from VRAM; 04 clears the Keras session) so you won't hit OOM.
+
+**Flow C — Local:** Clone the repo, `pip install -r requirements.txt`, run `python3 scripts/run_pipeline.py --use-precomputed` for the fast path or open notebooks in JupyterLab. Local filesystem persists between runs, so cross-notebook dependencies work naturally.
+
+### Quick start (Phase 1 only, local)
 ```bash
 python3 scripts/run_pipeline.py --use-precomputed
 ```
 
-### Full Phase 2 pipeline
+### Full Phase 2 pipeline (local)
 ```bash
 python3 scripts/generate_interim_features.py
 python3 scripts/run_optuna_search.py --n-trials 15 --epochs 15
@@ -302,10 +318,11 @@ python3 scripts/run_shap_analysis.py
 ```
 
 ### Interactive notebooks (Colab or local)
-Open notebooks 01–10 in order. Each notebook's first code cell auto-detects the environment (Colab vs local) and bootstraps accordingly — no manual setup required.
+- **`Master_Pipeline.ipynb`** — 🚀 1-click full pipeline (Stages 1-5 in one session). **Best for Colab.**
+- **Notebooks 01–05** (Phase 1): run sequentially in the SAME session, or use Master_Pipeline instead.
+- **Notebooks 06–10** (Phase 2): walk-forward CV, FinBERT inference, Optuna search, risk-managed backtest, SHAP interpretability.
 
-- **Notebooks 01–05** (Phase 1): data loading, LLM sentiment, feature engineering, LSTM fine-tuning, evaluation + backtesting
-- **Notebooks 06–10** (Phase 2): walk-forward CV, FinBERT inference, Optuna search, risk-managed backtest, SHAP interpretability
+> **Memory management:** Notebooks 02 and 04 end with explicit cleanup cells (`del pipe; gc.collect(); torch.cuda.empty_cache()` for LLM, `tf.keras.backend.clear_session()` for LSTM). Always run these cleanup cells before opening another notebook in the same session.
 
 > **Note:** Notebooks 06–10 use the Phase 2 `src/` package and require running `scripts/generate_interim_features.py` first to produce the interim feature bundle. The setup cell handles `sys.path` so `from src.cv.walk_forward import ...` works in both Colab and local environments.
 
@@ -318,6 +335,7 @@ Open notebooks 01–10 in order. Each notebook's first code cell auto-detects th
 - [x] ~~Optuna hyperparameter search with MedianPruner~~ — Phase 2 Step 3
 - [x] ~~Risk-managed backtester (Kelly + vol-target + DD breaker)~~ — Phase 2 Step 4
 - [x] ~~SHAP interpretability with regime comparison~~ — Phase 2 Step 5
+- [x] ~~Colab memory management + Master_Pipeline.ipynb for 1-click execution~~ — Colab hardening
 - [ ] Live trading integration with Binance Testnet
 - [ ] Multi-asset extension (ETH, SOL)
 - [ ] Walk-forward optimization with refit frequency
