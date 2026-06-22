@@ -1,0 +1,34 @@
+{
+  "best_params": {
+    "lr": 0.0005611516415334506,
+    "units": 32,
+    "dropout": 0.0,
+    "num_layers": 1
+  },
+  "best_oof_sharpe": 1.4320277941792354,
+  "n_trials": 5,
+  "n_pruned": 0,
+  "n_complete": 5,
+  "search_space": {
+    "lr": "log-uniform [1e-4, 1e-2]",
+    "units": [
+      32,
+      64,
+      128
+    ],
+    "dropout": [
+      0.0,
+      0.2,
+      0.4
+    ],
+    "num_layers": [
+      1,
+      2
+    ]
+  },
+  "walk_forward_config": {
+    "n_folds": 5,
+    "min_train": 400,
+    "val_size": 60
+  }
+}
