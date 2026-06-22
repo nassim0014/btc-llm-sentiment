@@ -305,6 +305,8 @@ Google Colab enforces two hard constraints that affect how you should run this p
 
 Both notebooks have built-in memory cleanup between stages, so they won't hit OOM. No cross-session dependency, no session limit issues.
 
+> **💡 Cross-session persistence:** Set `SAVE_TO_DRIVE = True` at the top of `Master_Pipeline.ipynb` to mount Google Drive and persist all outputs (models, CSVs, PNGs) to `/content/drive/MyDrive/BTC_Sentiment_Project/outputs/`. This makes artifacts survive across Colab sessions — close the session, come back tomorrow, and everything is still on your Drive. (Colab only; falls back to local paths if run outside Colab.)
+
 **Flow B — Sequential in the SAME session:** Open Notebook 01 in Colab, run it, then open Notebooks 02-05 in the same session via File → Open. All interim artifacts persist in `/content/btc-llm-sentiment/notebooks/interim/` as long as the session stays alive. Each notebook has a memory cleanup cell at the end (02 releases the LLM from VRAM; 04 clears the Keras session) so you won't hit OOM.
 
 **Flow C — Local:** Clone the repo, `pip install -r requirements.txt`, run `python3 scripts/run_pipeline.py --use-precomputed` for the fast path or open notebooks in JupyterLab. Local filesystem persists between runs, so cross-notebook dependencies work naturally.
