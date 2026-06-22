@@ -1,0 +1,6 @@
+strategy,total_return_pct,annualized_sharpe,annualized_sortino,max_drawdown_pct,win_rate_pct,n_trades,avg_daily_return_pct,daily_volatility_pct
+baseline,64.72,3.1071,5.9353,-10.79,53.64,1,0.4849,2.4774
+lightweight,4.39,0.4759,0.6191,-16.87,23.64,13,0.0566,1.8874
+regularized,0.0,0.0,0.0,0.0,0.0,0,0.0,0.0
+bilstm,20.52,2.1804,3.7299,-4.06,12.73,12,0.178,1.2958
+buy_hold,61.56,2.9633,5.6554,-12.72,54.55,1,0.468,2.5069
