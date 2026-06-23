@@ -1,0 +1,221 @@
+"""
+BTC Sentiment-Driven LSTM Trading Pipeline — Streamlit Dashboard
+
+Main entry point. Renders the Overview/Dashboard page with high-level metrics
+and provides navigation to the Phase 1 and Phase 2 deep-dive pages via the
+Streamlit `pages/` directory.
+
+Usage:
+    streamlit run streamlit_app.py
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Optional
+
+import pandas as pd
+import streamlit as st
+
+# ---------------------------------------------------------------------
+# Page config
+# ---------------------------------------------------------------------
+st.set_page_config(
+    page_title="BTC Sentiment LSTM Dashboard",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ---------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------
+ROOT = Path(__file__).resolve().parent
+OUTPUTS = ROOT / "outputs"
+
+
+# ---------------------------------------------------------------------
+# Data loaders (with error handling)
+# ---------------------------------------------------------------------
+@st.cache_data(ttl=300)
+def load_csv(filename: str) -> Optional[pd.DataFrame]:
+    """Load a CSV from outputs/. Return None and show a warning if missing."""
+    path = OUTPUTS / filename
+    if not path.exists():
+        st.warning(f"Data file not found: `outputs/{filename}`. Run the pipeline first.")
+        return None
+    try:
+        return pd.read_csv(path)
+    except Exception as e:
+        st.error(f"Failed to load `outputs/{filename}`: {e}")
+        return None
+
+
+@st.cache_data(ttl=300)
+def load_json(filename: str) -> Optional[dict]:
+    """Load a JSON file from outputs/."""
+    path = OUTPUTS / filename
+    if not path.exists():
+        st.warning(f"Data file not found: `outputs/{filename}`.")
+        return None
+    try:
+        with path.open() as f:
+            return json.load(f)
+    except Exception as e:
+        st.error(f"Failed to load `outputs/{filename}`: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------
+# Header
+# ---------------------------------------------------------------------
+st.title("📈 BTC Sentiment-Driven LSTM Trading Dashboard")
+st.markdown(
+    "An end-to-end ML pipeline combining **FinBERT news sentiment** with "
+    "**LSTM price forecasting**, **Optuna hyperparameter optimization**, "
+    "**Kelly-based risk management**, and **SHAP interpretability**."
+)
+
+# ---------------------------------------------------------------------
+# Load key data
+# ---------------------------------------------------------------------
+fmc = load_csv("final_model_comparison.csv")
+sc = load_csv("strategy_comparison.csv")
+rm = load_csv("risk_managed_backtest_results.csv")
+best_params = load_json("best_optuna_params.json")
+trading_metrics = load_csv("trading_metrics.csv")
+
+# ---------------------------------------------------------------------
+# Top-level KPI metrics
+# ---------------------------------------------------------------------
+st.markdown("---")
+st.subheader("🎯 Key Performance Metrics")
+
+if fmc is not None and len(fmc) > 0:
+    # Find best LSTM strategy and Buy & Hold
+    lstm_strategies = fmc[fmc["strategy"] != "buy_hold"].copy()
+    best_lstm = lstm_strategies.loc[lstm_strategies["sharpe_ratio"].idxmax()] if len(lstm_strategies) > 0 else None
+    buy_hold = fmc[fmc["strategy"] == "buy_hold"].iloc[0] if (fmc["strategy"] == "buy_hold").any() else None
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    if best_lstm is not None:
+        col1.metric(
+            label=f"Best LSTM Sharpe ({best_lstm['strategy']})",
+            value=f"{best_lstm['sharpe_ratio']:.2f}",
+            delta=f"{best_lstm['final_portfolio_value']:.4f}",
+        )
+    if buy_hold is not None:
+        col2.metric(
+            label="Buy & Hold Sharpe",
+            value=f"{buy_hold['sharpe_ratio']:.2f}",
+            delta=f"{buy_hold['final_portfolio_value']:.4f}",
+        )
+    if best_lstm is not None:
+        col3.metric(
+            label="Best LSTM Max Drawdown",
+            value=f"{best_lstm['max_drawdown']*100:.2f}%",
+            delta=f"{(best_lstm['max_drawdown'] - buy_hold['max_drawdown'])*100:.2f}pp vs B&H" if buy_hold is not None else None,
+            delta_color="inverse",
+        )
+    if best_params is not None:
+        col4.metric(
+            label="Optuna Best OOF Sharpe",
+            value=f"{best_params.get('best_oof_sharpe', 0):.2f}",
+            delta=f"{best_params.get('n_complete', 0)} trials",
+        )
+    if rm is not None and len(rm) > 0:
+        col5.metric(
+            label="Risk-Managed Max DD",
+            value=f"{rm.iloc[0]['max_drawdown_pct']:.2f}%",
+            delta=f"{rm.iloc[0]['n_trades']} trades",
+        )
+else:
+    st.info("Run the pipeline to populate the dashboard metrics.")
+
+# ---------------------------------------------------------------------
+# Strategy comparison table
+# ---------------------------------------------------------------------
+st.markdown("---")
+st.subheader("📊 Strategy Comparison — Phase 1 (LSTM Configs vs Buy & Hold)")
+
+if fmc is not None and len(fmc) > 0:
+    display_df = fmc.copy()
+    # Format percentages
+    display_df["max_drawdown"] = (display_df["max_drawdown"] * 100).round(2).astype(str) + "%"
+    display_df["win_rate"] = (display_df["win_rate"] * 100).round(2).astype(str) + "%"
+    display_df["final_portfolio_value"] = display_df["final_portfolio_value"].round(4)
+    display_df["sharpe_ratio"] = display_df["sharpe_ratio"].round(4)
+    display_df["sortino_ratio"] = display_df["sortino_ratio"].round(4)
+    display_df.columns = [c.replace("_", " ").title() for c in display_df.columns]
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
+else:
+    st.warning("Strategy comparison data not available.")
+
+# ---------------------------------------------------------------------
+# Risk-managed vs Simple vs Buy & Hold
+# ---------------------------------------------------------------------
+st.markdown("---")
+st.subheader("🛡️ Phase 2: Risk-Managed Backtest Comparison")
+
+if sc is not None and len(sc) > 0:
+    col_left, col_right = st.columns([3, 2])
+
+    with col_left:
+        st.dataframe(
+            sc.style.format({
+                "final_value": "{:.4f}",
+                "sharpe": "{:.4f}",
+                "max_dd": "{:.4f}",
+            }),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    with col_right:
+        if rm is not None and len(rm) > 0:
+            r = rm.iloc[0]
+            st.metric("Risk-Managed Final Value", f"{r['final_portfolio_value']:.4f}")
+            st.metric("Risk-Managed Sharpe", f"{r['annualized_sharpe']:.4f}")
+            st.metric("Circuit Breaker Triggered", "Yes" if r["circuit_breaker_triggered"] else "No")
+else:
+    st.warning("Strategy comparison data not available.")
+
+# ---------------------------------------------------------------------
+# Best Optuna hyperparameters
+# ---------------------------------------------------------------------
+st.markdown("---")
+st.subheader("⚙️ Optuna Best Hyperparameters")
+
+if best_params is not None:
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        bp = best_params.get("best_params", {})
+        st.json({
+            "Learning Rate": f"{bp.get('lr', 0):.6f}",
+            "LSTM Units": bp.get("units", "N/A"),
+            "Dropout": bp.get("dropout", "N/A"),
+            "Number of Layers": bp.get("num_layers", "N/A"),
+        })
+
+    with col2:
+        st.json({
+            "Best OOF Sharpe": f"{best_params.get('best_oof_sharpe', 0):.4f}",
+            "Total Trials": best_params.get("n_complete", 0) + best_params.get("n_pruned", 0),
+            "Completed Trials": best_params.get("n_complete", 0),
+            "Pruned Trials": best_params.get("n_pruned", 0),
+            "Walk-Forward Folds": best_params.get("walk_forward_config", {}).get("n_folds", "N/A"),
+        })
+else:
+    st.warning("Optuna parameters not available.")
+
+# ---------------------------------------------------------------------
+# Footer
+# ---------------------------------------------------------------------
+st.markdown("---")
+st.markdown(
+    "📋 **Navigation:** Use the sidebar to explore **Phase 1** (data → sentiment → LSTM → backtest) "
+    "and **Phase 2** (walk-forward CV → Optuna → risk-managed backtest → SHAP) deep-dives."
+)
+st.caption("BTC Sentiment-Driven LSTM Trading Pipeline — Built with Streamlit + Plotly")
