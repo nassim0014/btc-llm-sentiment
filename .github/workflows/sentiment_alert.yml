@@ -1,0 +1,48 @@
+name: Sentiment Alert
+
+on:
+  schedule:
+    # Daily at 08:00 UTC (09:00 Africa/Tunis)
+    - cron: '0 8 * * *'
+  workflow_dispatch: # manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  sentiment-alert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install pandas requests
+
+      - name: Run sentiment alert check
+        env:
+          # Email (SMTP) — all required for email alerts
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          # Slack
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          # Discord
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python3 scripts/sentiment_alert.py
+
+      - name: Commit alert log
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add audit/sentiment_alerts.csv || echo "No alert log to commit"
+          git commit -m "audit: sentiment alert log update ($(date -u +%Y-%m-%d))" || echo "No changes to commit"
+          git push || echo "Nothing to push"

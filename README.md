@@ -52,11 +52,13 @@ A reproducible end-to-end pipeline combining natural-language sentiment signals 
 
 ### 🚀 Live Dashboard (Streamlit)
 
-The repository includes an interactive **Streamlit web app** that visualizes the pipeline results with interactive Plotly charts. The app has three pages:
+The repository includes an interactive **Streamlit web app** that visualizes the pipeline results with interactive Plotly charts. The app has five pages:
 
-1. **Overview/Dashboard** — high-level KPIs (Sharpe, drawdown, Optuna results) + strategy comparison tables
+1. **Overview/Dashboard** — live BTC price ticker, live news sentiment ticker, high-level KPIs (Sharpe, drawdown, Optuna results) + strategy comparison tables
 2. **Phase 1 Deep-Dive** — portfolio equity curves, trading metrics bar charts, model comparison
 3. **Phase 2 Deep-Dive** — risk-managed equity curve with position sizing, Optuna hyperparameters, SHAP feature importance
+4. **Live Predictions** — fetches today's BTC price + news, runs the trained LSTM model, displays a live up/down prediction with confidence gauge
+5. **Backtest Simulator** — interactive sliders for Kelly fraction, vol-target, drawdown breaker, and threshold; real-time equity curve updates + parameter sensitivity analysis
 
 **Run locally:**
 ```bash
@@ -385,6 +387,48 @@ python3 scripts/generate_interim_features.py              # Phase 2 features
 python3 scripts/run_optuna_search.py --n-trials 15        # Phase 2 HPO
 python3 scripts/run_risk_managed_backtest.py              # Phase 2 backtest
 python3 scripts/run_shap_analysis.py                      # Phase 2 SHAP
+```
+
+---
+
+## 📬 Sentiment Alert System
+
+The repository includes an automated sentiment alert system that monitors crypto news sentiment and sends notifications when thresholds are crossed.
+
+### Alert Thresholds
+
+| Level | Threshold | Emoji | Trigger |
+|-------|-----------|-------|---------|
+| Very Bullish | sentiment > 0.3 | 🟢 | Strong positive news sentiment |
+| Bullish | sentiment > 0.1 | 📈 | Positive news sentiment |
+| Bearish | sentiment < -0.1 | 🟡 | Negative news sentiment |
+| Very Bearish | sentiment < -0.3 | 🔴 | Strong negative news sentiment |
+
+### Notification Channels
+
+Configure via GitHub Secrets (or environment variables locally):
+
+| Channel | Required Secrets | Description |
+|---------|-----------------|-------------|
+| **Email** | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `ALERT_EMAIL_TO` | HTML email via SMTP |
+| **Slack** | `SLACK_WEBHOOK_URL` | Slack incoming webhook with color-coded attachment |
+| **Discord** | `DISCORD_WEBHOOK_URL` | Discord webhook with embedded rich message |
+
+### Automation
+
+- **Workflow:** `.github/workflows/sentiment_alert.yml`
+- **Schedule:** Daily at 08:00 UTC (09:00 Africa/Tunis)
+- **Script:** `scripts/sentiment_alert.py`
+- **Log:** `audit/sentiment_alerts.csv` (committed to repo on each alert)
+
+### Manual Run
+
+```bash
+# Dry run (test without sending)
+python3 scripts/sentiment_alert.py --dry-run
+
+# With notifications (configure env vars first)
+SLACK_WEBHOOK_URL=https://hooks.slack.com/... python3 scripts/sentiment_alert.py
 ```
 
 ---
