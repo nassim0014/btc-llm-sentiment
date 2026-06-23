@@ -5,6 +5,10 @@ and display a live up/down prediction.
 This page loads the saved Optuna-tuned LSTM model, fetches the latest BTC
 OHLCV data and crypto news, engineers the same 23 features used in training,
 and runs the model to produce a directional prediction for the next 5 days.
+
+If the model is not available (e.g., on Streamlit Cloud without the .keras
+file committed), the page still shows live BTC price, sentiment data, and
+feature engineering — but displays "Model Required" instead of the prediction.
 """
 from __future__ import annotations
 
@@ -28,15 +32,42 @@ OUTPUTS = ROOT / "outputs"
 INTERIM = ROOT / "notebooks" / "interim"
 DATA = ROOT / "Data"
 
+# Model path — checked in multiple locations for resilience
+MODEL_PATHS = [
+    INTERIM / "best_optuna_model.keras",
+    ROOT / "models" / "best_optuna_model.keras",
+    ROOT / "best_optuna_model.keras",
+]
+BUNDLE_PATHS = [
+    INTERIM / "features_for_lstm.pkl",
+    ROOT / "models" / "features_for_lstm.pkl",
+]
+
 
 # ---------------------------------------------------------------------
 # Data loaders
 # ---------------------------------------------------------------------
+def find_model() -> Optional[Path]:
+    """Search for the trained model in multiple locations."""
+    for p in MODEL_PATHS:
+        if p.exists():
+            return p
+    return None
+
+
+def find_bundle() -> Optional[Path]:
+    """Search for the feature bundle in multiple locations."""
+    for p in BUNDLE_PATHS:
+        if p.exists():
+            return p
+    return None
+
+
 @st.cache_data(ttl=300)
 def load_feature_bundle() -> Optional[dict]:
     """Load the feature bundle (scaler + feature columns + test_close)."""
-    path = INTERIM / "features_for_lstm.pkl"
-    if not path.exists():
+    path = find_bundle()
+    if path is None:
         return None
     try:
         with path.open("rb") as f:
@@ -48,15 +79,15 @@ def load_feature_bundle() -> Optional[dict]:
 @st.cache_resource
 def load_lstm_model():
     """Load the saved Optuna-tuned LSTM model."""
-    model_path = INTERIM / "best_optuna_model.keras"
-    if not model_path.exists():
+    path = find_model()
+    if path is None:
         return None
     try:
         import os
         os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
         import tensorflow as tf
         tf.get_logger().setLevel("ERROR")
-        return tf.keras.models.load_model(model_path)
+        return tf.keras.models.load_model(str(path))
     except Exception:
         return None
 
@@ -189,22 +220,32 @@ st.markdown("Fetches the latest BTC price + crypto news, engineers features, and
 
 st.markdown("---")
 
-# Load model + feature bundle
-with st.spinner("Loading the trained LSTM model..."):
-    model = load_lstm_model()
-    bundle = load_feature_bundle()
+# ---------------------------------------------------------------------
+# Check model availability (non-fatal — continue even if missing)
+# ---------------------------------------------------------------------
+model = load_lstm_model()
+bundle = load_feature_bundle()
+model_available = model is not None and bundle is not None
 
-if model is None:
-    st.error("⚠️ Trained LSTM model not found. Run the Phase 2 pipeline first to generate `notebooks/interim/best_optuna_model.keras`.")
-    st.stop()
+if not model_available:
+    st.warning("⚠️ Trained LSTM model not found in this deployment.")
+    st.info("""
+    **To enable live predictions:**
+    - Run the Phase 2 Optuna pipeline locally to generate the model
+    - The model file (`best_optuna_model.keras`) is 122KB and should be committed to the repo
+    - Place it at: `notebooks/interim/best_optuna_model.keras`
+    
+    **Below:** Live BTC price, news sentiment, and feature engineering are still available —
+    only the final LSTM prediction requires the model.
+    """)
+    st.markdown("---")
 
-if bundle is None:
-    st.error("⚠️ Feature bundle not found. Run `scripts/generate_interim_features.py` first.")
-    st.stop()
+if model_available:
+    st.success(f"✅ Model loaded: {model.name} | Features: {len(bundle['feature_cols'])}")
 
-st.success(f"✅ Model loaded: {model.name} | Features: {len(bundle['feature_cols'])}")
-
-# Fetch live data
+# ---------------------------------------------------------------------
+# Fetch live data (always shown, even without the model)
+# ---------------------------------------------------------------------
 col1, col2 = st.columns(2)
 
 with col1:
@@ -226,102 +267,112 @@ with col2:
 if btc is None or news is None:
     st.stop()
 
-# Engineer features
+# ---------------------------------------------------------------------
+# Feature engineering (always shown)
+# ---------------------------------------------------------------------
 st.markdown("---")
 st.subheader("🔧 Feature Engineering")
 
-with st.spinner("Engineering 23 features (technical + sentiment)..."):
+with st.spinner("Engineering features (technical + sentiment)..."):
     df = engineer_features(btc, news)
 
 if df is None or len(df) < 30:
     st.error("⚠️ Could not engineer features. Need at least 30 days of data.")
     st.stop()
 
-# Get the latest row with all features filled
-FEATURE_COLS = bundle["feature_cols"]
-scaler = bundle["scaler"]
+st.success(f"✅ Engineered features for {df['date'].iloc[-1].date()}")
 
-df_features = df[FEATURE_COLS].fillna(0)
-latest_features = df_features.iloc[-1:]
+# Show latest feature values (if we have the feature column list)
+if model_available:
+    FEATURE_COLS = bundle["feature_cols"]
+    df_features = df[FEATURE_COLS].fillna(0)
+    latest_features = df_features.iloc[-1:]
 
-st.success(f"✅ Engineered {len(FEATURE_COLS)} features for {df['date'].iloc[-1].date()}")
+    with st.expander("📋 View latest feature values"):
+        feature_display = pd.DataFrame({
+            "Feature": FEATURE_COLS,
+            "Value": latest_features.values[0],
+        })
+        st.dataframe(feature_display, use_container_width=True, hide_index=True)
 
-# Show latest feature values
-with st.expander("📋 View latest feature values"):
-    feature_display = pd.DataFrame({
-        "Feature": FEATURE_COLS,
-        "Value": latest_features.values[0],
-    })
-    st.dataframe(feature_display, use_container_width=True, hide_index=True)
+# ---------------------------------------------------------------------
+# LSTM Prediction (only if model is available)
+# ---------------------------------------------------------------------
+if model_available:
+    st.markdown("---")
+    st.subheader("🤖 LSTM Prediction")
 
-# Scale features + reshape for LSTM
-latest_scaled = scaler.transform(latest_features)
-latest_3d = latest_scaled.reshape(1, 1, len(FEATURE_COLS))
+    scaler = bundle["scaler"]
+    latest_scaled = scaler.transform(latest_features)
+    latest_3d = latest_scaled.reshape(1, 1, len(FEATURE_COLS))
 
-# Run prediction
-st.markdown("---")
-st.subheader("🤖 LSTM Prediction")
+    with st.spinner("Running the LSTM model..."):
+        try:
+            prob_up = float(model.predict(latest_3d, verbose=0).ravel()[0])
+        except Exception as e:
+            st.error(f"⚠️ Model prediction failed: {e}")
+            prob_up = None
 
-with st.spinner("Running the LSTM model..."):
-    try:
-        prob_up = float(model.predict(latest_3d, verbose=0).ravel()[0])
-    except Exception as e:
-        st.error(f"⚠️ Model prediction failed: {e}")
-        st.stop()
+    if prob_up is not None:
+        # Display prediction
+        col_pred, col_conf, col_signal = st.columns(3)
 
-# Display prediction
-col_pred, col_conf, col_signal = st.columns(3)
+        with col_pred:
+            if prob_up >= 0.5:
+                st.metric("Prediction", "📈 UP", delta=f"{prob_up*100:.1f}% confidence")
+            else:
+                st.metric("Prediction", "📉 DOWN", delta=f"{(1-prob_up)*100:.1f}% confidence", delta_color="inverse")
 
-with col_pred:
-    if prob_up >= 0.5:
-        st.metric("Prediction", "📈 UP", delta=f"{prob_up*100:.1f}% confidence")
-    else:
-        st.metric("Prediction", "📉 DOWN", delta=f"{(1-prob_up)*100:.1f}% confidence", delta_color="inverse")
+        with col_conf:
+            st.metric("P(Up)", f"{prob_up*100:.1f}%")
+            st.metric("P(Down)", f"{(1-prob_up)*100:.1f}%")
 
-with col_conf:
-    st.metric("P(Up)", f"{prob_up*100:.1f}%")
-    st.metric("P(Down)", f"{(1-prob_up)*100:.1f}%")
+        with col_signal:
+            threshold = 0.5
+            if prob_up >= threshold:
+                signal = "🟢 LONG"
+            else:
+                signal = "🔴 CASH"
+            st.markdown(f"### {signal}")
+            st.caption(f"Threshold: {threshold:.2f}")
 
-with col_signal:
-    # Trading signal based on threshold
-    threshold = 0.5
-    if prob_up >= threshold:
-        signal = "🟢 LONG"
-        signal_color = "green"
-    else:
-        signal = "🔴 CASH"
-        signal_color = "red"
-    st.markdown(f"### {signal}")
-    st.caption(f"Threshold: {threshold:.2f}")
+        # Prediction gauge
+        st.markdown("---")
+        st.subheader("📊 Prediction Confidence Gauge")
 
-# Prediction gauge
-st.markdown("---")
-st.subheader("📊 Prediction Confidence Gauge")
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=prob_up * 100,
+            domain={"x": [0, 1], "y": [0, 1]},
+            title={"text": "Probability of BTC going UP in 5 days"},
+            gauge={
+                "axis": {"range": [0, 100]},
+                "bar": {"color": "#00d4ff"},
+                "steps": [
+                    {"range": [0, 30], "color": "#dc2626"},
+                    {"range": [30, 70], "color": "#f59e0b"},
+                    {"range": [70, 100], "color": "#16a34a"},
+                ],
+                "threshold": {
+                    "line": {"color": "white", "width": 4},
+                    "thickness": 0.75,
+                    "value": 50,
+                },
+            },
+        ))
+        fig.update_layout(template="plotly_dark", height=350)
+        st.plotly_chart(fig, use_container_width=True)
 
-fig = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=prob_up * 100,
-    domain={"x": [0, 1], "y": [0, 1]},
-    title={"text": "Probability of BTC going UP in 5 days"},
-    gauge={
-        "axis": {"range": [0, 100]},
-        "bar": {"color": "#00d4ff"},
-        "steps": [
-            {"range": [0, 30], "color": "#dc2626"},
-            {"range": [30, 70], "color": "#f59e0b"},
-            {"range": [70, 100], "color": "#16a34a"},
-        ],
-        "threshold": {
-            "line": {"color": "white", "width": 4},
-            "thickness": 0.75,
-            "value": 50,
-        },
-    },
-))
-fig.update_layout(template="plotly_dark", height=350)
-st.plotly_chart(fig, use_container_width=True)
+else:
+    # Model not available — show placeholder
+    st.markdown("---")
+    st.subheader("🤖 LSTM Prediction")
+    st.info("📋 **Model Required** — The trained LSTM model is not available in this deployment. See the warning above for instructions on how to enable live predictions.")
+    st.markdown("### ⏳ Prediction: *Model Required*")
 
-# Recent price chart
+# ---------------------------------------------------------------------
+# Recent price chart (always shown)
+# ---------------------------------------------------------------------
 st.markdown("---")
 st.subheader("📈 Recent BTC-USD Price (30 days)")
 
@@ -348,7 +399,9 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# Recent sentiment
+# ---------------------------------------------------------------------
+# Recent sentiment (always shown)
+# ---------------------------------------------------------------------
 st.markdown("---")
 st.subheader("📰 Recent News Sentiment (7 days)")
 
@@ -375,7 +428,7 @@ if len(daily_sent) > 0:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# Latest headlines
+# Latest headlines (always shown)
 st.markdown("#### Latest 5 Headlines")
 latest_news = news.tail(5)[["date", "title", "llm_sentiment"]].copy()
 latest_news["date"] = latest_news["date"].dt.strftime("%Y-%m-%d %H:%M")
@@ -383,4 +436,5 @@ latest_news.columns = ["Date", "Headline", "Sentiment"]
 st.dataframe(latest_news, use_container_width=True, hide_index=True)
 
 st.markdown("---")
-st.caption("🎯 Live Predictions — Uses the Optuna-tuned LSTM model with the same 23 features (technical + sentiment) as training. Prediction is for the 5-day forward directional move.")
+status = "with LSTM prediction" if model_available else "without LSTM prediction (model not found)"
+st.caption(f"🎯 Live Predictions — Uses the Optuna-tuned LSTM model with the same 23 features (technical + sentiment) as training. Running {status}.")
