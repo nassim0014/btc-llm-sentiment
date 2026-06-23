@@ -67,6 +67,46 @@ def load_json(filename: str) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------
+# Live BTC price ticker (yfinance)
+# ---------------------------------------------------------------------
+@st.cache_data(ttl=300)
+def fetch_live_btc() -> Optional[dict]:
+    """Fetch live BTC-USD price + 7-day history via yfinance.
+    
+    Returns a dict with: price, change_24h_pct, history (DataFrame).
+    Returns None on failure (caller shows a warning).
+    """
+    try:
+        import yfinance as yf
+        btc = yf.download("BTC-USD", period="7d", interval="1h", progress=False, auto_adjust=False)
+        if btc is None or len(btc) == 0:
+            return None
+        # Flatten MultiIndex if present (newer yfinance versions)
+        if isinstance(btc.columns, pd.MultiIndex):
+            btc.columns = [" ".join(c).strip() for c in btc.columns]
+        # Get the latest close price
+        close_col = [c for c in btc.columns if "Close" in c][0]
+        current_price = float(btc[close_col].iloc[-1])
+        # 24h change: compare last value to ~24h ago (24 hourly candles)
+        if len(btc) >= 24:
+            prev_price = float(btc[close_col].iloc[-24])
+            change_pct = ((current_price - prev_price) / prev_price) * 100
+        else:
+            change_pct = 0.0
+        # Prepare history for sparkline
+        history = btc[[close_col]].copy()
+        history.columns = ["price"]
+        history.index.name = "datetime"
+        return {
+            "price": current_price,
+            "change_24h_pct": change_pct,
+            "history": history.reset_index(),
+        }
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------
 # Header
 # ---------------------------------------------------------------------
 st.title("📈 BTC Sentiment-Driven LSTM Trading Dashboard")
@@ -75,6 +115,62 @@ st.markdown(
     "**LSTM price forecasting**, **Optuna hyperparameter optimization**, "
     "**Kelly-based risk management**, and **SHAP interpretability**."
 )
+
+# ---------------------------------------------------------------------
+# Live BTC price ticker
+# ---------------------------------------------------------------------
+st.markdown("---")
+st.subheader("🔴 Live BTC-USD Price")
+
+live_btc = fetch_live_btc()
+
+if live_btc is not None:
+    col_price, col_change, col_chart = st.columns([1, 1, 4])
+
+    with col_price:
+        st.metric(
+            label="BTC-USD",
+            value=f"${live_btc['price']:,.2f}",
+        )
+
+    with col_change:
+        change = live_btc["change_24h_pct"]
+        st.metric(
+            label="24h Change",
+            value=f"{change:+.2f}%",
+            delta=f"{change:+.2f}%",
+            delta_color="normal" if change >= 0 else "inverse",
+        )
+
+    with col_chart:
+        import plotly.graph_objects as go
+        hist = live_btc["history"]
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=hist["datetime"],
+                y=hist["price"],
+                mode="lines",
+                name="BTC-USD",
+                line=dict(color="#00d4ff" if change >= 0 else "#ff4b4b", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(0, 212, 255, 0.1)" if change >= 0 else "rgba(255, 75, 75, 0.1)",
+                hovertemplate="Time: %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:,.2f}<extra></extra>",
+            )
+        )
+        fig.update_layout(
+            template="plotly_dark",
+            height=200,
+            margin=dict(l=0, r=0, t=0, b=0),
+            xaxis=dict(showgrid=False, visible=False),
+            yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.1)"),
+            showlegend=False,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.caption(f"📅 Data via yfinance • Cached for 5 minutes • Last updated: {pd.Timestamp.now(tz='UTC').strftime('%Y-%m-%d %H:%M UTC')}")
+else:
+    st.warning("⚠️ Could not fetch live BTC price. The yfinance API may be rate-limited or unavailable. Pipeline results below are still available.")
 
 # ---------------------------------------------------------------------
 # Load key data
