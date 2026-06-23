@@ -7,6 +7,10 @@
 </p>
 
 <p align="center">
+  <a href="YOUR_STREAMLIT_APP_URL_HERE">
+    <img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Open in Streamlit">
+  </a>
+  &nbsp;
   <a href="https://colab.research.google.com/github/nassim0014/btc-llm-sentiment/blob/main/notebooks/Master_Pipeline.ipynb">
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open Phase 1 in Colab">
   </a>
@@ -45,6 +49,28 @@ A reproducible end-to-end pipeline combining natural-language sentiment signals 
 ---
 
 ## Quick Start
+
+### 🚀 Live Dashboard (Streamlit)
+
+The repository includes an interactive **Streamlit web app** that visualizes the pipeline results with interactive Plotly charts. The app has three pages:
+
+1. **Overview/Dashboard** — high-level KPIs (Sharpe, drawdown, Optuna results) + strategy comparison tables
+2. **Phase 1 Deep-Dive** — portfolio equity curves, trading metrics bar charts, model comparison
+3. **Phase 2 Deep-Dive** — risk-managed equity curve with position sizing, Optuna hyperparameters, SHAP feature importance
+
+**Run locally:**
+```bash
+pip install streamlit plotly pandas
+streamlit run streamlit_app.py
+```
+
+**Deploy to Streamlit Cloud:**
+1. Push this repo to GitHub
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Connect the repo → select `streamlit_app.py` as the entry point
+4. The app deploys automatically and gets a public URL
+
+> **Note:** The app reads from `outputs/` — run the pipeline first (via Colab or `make run && make phase2`) to populate the CSVs the dashboard visualizes.
 
 ### Path A — Google Colab (zero setup, recommended)
 
@@ -182,6 +208,7 @@ flowchart LR
 | Risk management    | `src.backtest.risk_managed` (Kelly + vol-target + DD breaker)| 2    |
 | Interpretability   | `shap` (KernelExplainer with DeepExplainer fallback)        | 2     |
 | Visualization      | `matplotlib`, `seaborn`                                     | 1 + 2 |
+| Interactive dashboard | `streamlit`, `plotly` (dark mode, multi-page)            | —     |
 | Testing            | `pytest` (15 unit tests)                                    | —     |
 | CI/CD              | GitHub Actions (Python 3.11 + 3.12 matrix)                  | —     |
 
@@ -193,8 +220,10 @@ flowchart LR
 btc-llm-sentiment/
 ├── README.md
 ├── Makefile                                    # make setup / run / phase2 / test
-├── requirements.txt                            # pinned deps
+├── requirements.txt                            # pinned deps (incl. streamlit + plotly)
 ├── conftest.py                                 # pytest config (makes src/ importable)
+├── streamlit_app.py                            # 🖥️ Streamlit dashboard entry point
+├── .streamlit/config.toml                      # dark mode theme config
 ├── .github/workflows/test.yml                  # CI: syntax check + pytest on push
 ├── Data/
 │   ├── cryptonews.csv                          # 31,037 headlines
@@ -213,6 +242,9 @@ btc-llm-sentiment/
 │       ├── 08_optuna_search.ipynb
 │       ├── 09_risk_managed_backtest.ipynb
 │       └── 10_shap_interpretability.ipynb
+├── pages/                                      # Streamlit multi-page app
+│   ├── 1_🔬_Phase_1_Deep_Dive.py             # Phase 1 interactive charts
+│   └── 2_🚀_Phase_2_Deep_Dive.py             # Phase 2 interactive charts
 ├── src/                                        # Phase 2 modular package
 │   ├── cv/
 │   │   ├── walk_forward.py                     # Expanding-window CV
