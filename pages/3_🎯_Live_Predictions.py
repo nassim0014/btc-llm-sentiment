@@ -215,7 +215,18 @@ def engineer_features(btc: pd.DataFrame, news: pd.DataFrame) -> Optional[pd.Data
 # ---------------------------------------------------------------------
 # Page content
 # ---------------------------------------------------------------------
-st.title("🎯 Live Predictions")
+# Title + refresh button in the same row
+col_title, col_refresh = st.columns([8, 1])
+with col_title:
+    st.title("🎯 Live Predictions")
+with col_refresh:
+    st.write("")  # vertical spacer to align with title
+    if st.button("🔄 Refresh", help="Clear cache and fetch fresh BTC price + news data"):
+        # Clear the cached data for this page's fetch functions
+        fetch_latest_btc.clear()
+        fetch_latest_news_sentiment.clear()
+        st.rerun()
+
 st.markdown("Fetches the latest BTC price + crypto news, engineers features, and runs the trained LSTM model to predict the next 5-day directional move.")
 
 st.markdown("---")
