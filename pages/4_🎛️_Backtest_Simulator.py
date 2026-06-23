@@ -71,33 +71,33 @@ def run_backtest(
     but with user-adjustable parameters for the simulator.
     """
     n = len(close)
-    rets = np.diff(close) / close[:-1]
-    realized_vol = (
-        pd.Series(rets).rolling(vol_lookback).std().values * np.sqrt(252)
+    rets = np.diff(close) / close[:-1]  # length n-1
+    # realized_vol aligned with rets (length n-1); pad to length n with a leading 0
+    # so indexing matches the close/prob arrays in the backtest loop
+    realized_vol = pd.Series(rets).rolling(vol_lookback).std() * np.sqrt(252)
+    # Reindex to length n: prepend a NaN so vol_factor[0] corresponds to day 0
+    realized_vol = pd.concat([pd.Series([np.nan]), realized_vol]).reset_index(drop=True)
+
+    # Vectorized Volatility Scaling (replaces the buggy for-loop)
+    # 1. Fill initial NaNs (from the rolling window) with target vol so factor defaults to 1.0
+    realized_vol_safe = realized_vol.fillna(target_annual_vol)
+    # 2. Prevent division by zero
+    realized_vol_safe = realized_vol_safe.replace(0, np.inf)
+    # 3. Calculate scaling factor and cap at 1.0 (max leverage)
+    vol_factor = (target_annual_vol / realized_vol_safe).clip(upper=1.0)
+    # 4. If vol-targeting is disabled, force factor to 1.0
+    if not use_vol_target:
+        vol_factor = pd.Series(1.0, index=vol_factor.index)
+
+    # Kelly fraction sizing (vectorized)
+    kelly = np.where(
+        prob >= threshold,
+        np.minimum((prob - threshold) / max(1.0 - threshold, 1e-6), kelly_cap),
+        0.0,
     )
-    first_valid = np.where(~np.isnan(realized_vol))[0]
-    if len(first_valid) > 0:
-        realized_vol[: first_valid[0]] = realized_vol[first_valid[0]]
-    else:
-        realized_vol[:] = target_annual_vol
-    realized_vol = np.maximum(realized_vol, 0.01)
 
-    # Kelly fraction sizing
-    kelly = np.zeros(n)
-    for i in range(n):
-        if prob[i] >= threshold:
-            k = (prob[i] - threshold) / max(1.0 - threshold, 1e-6)
-            kelly[i] = min(k, kelly_cap)
-        else:
-            kelly[i] = 0.0
-
-    # Volatility targeting
-    vol_factor = np.ones(n)
-    if use_vol_target:
-        for i in range(n):
-            vol_factor[i] = min(target_annual_vol / realized_vol[i], 1.0)
-
-    raw_position = kelly * vol_factor
+    # Combine Kelly + vol-target (convert vol_factor to numpy for element-wise multiply)
+    raw_position = kelly * vol_factor.values
 
     # Backtest with optional circuit breaker
     equity = np.ones(n)
