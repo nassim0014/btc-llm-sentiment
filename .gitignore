@@ -25,11 +25,10 @@ notebooks/interim/
 Thumbs.db
 
 # PyTorch / TensorFlow model caches
+# Note: pre-trained models (.keras, .pkl) ARE committed for the Streamlit
+# Live Predictions page. Only large model formats (.h5, .ker) are ignored.
 *.ker
-*.keras
 *.h5
-*.pkl
-!notebooks/interim/.gitkeep
 
 # HuggingFace model cache
 .cache/
