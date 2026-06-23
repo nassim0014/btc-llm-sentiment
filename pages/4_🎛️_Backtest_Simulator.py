@@ -446,7 +446,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------------------------------------------------
-# Parameter sensitivity
+# Parameter sensitivity (cached in session_state)
 # ---------------------------------------------------------------------
 st.markdown("---")
 st.subheader("🔬 Parameter Sensitivity Analysis")
@@ -462,85 +462,109 @@ sensitivity_param = st.selectbox(
     }[x],
 )
 
-# Run sensitivity scan
-with st.spinner(f"Scanning {sensitivity_param}..."):
-    if sensitivity_param == "threshold":
-        param_values = np.arange(0.30, 0.71, 0.05)
-        results = []
-        for v in param_values:
-            r = run_backtest(prob, close, threshold=v, fee=fee,
-                             target_annual_vol=target_vol, max_drawdown_pct=max_dd,
-                             kelly_cap=kelly_cap, use_vol_target=use_vol_target,
-                             use_circuit_breaker=use_breaker)
-            results.append({"value": v, "sharpe": r["sharpe"], "final_value": r["final_value"],
-                            "max_dd": r["max_dd"], "n_trades": r["n_trades"]})
-    elif sensitivity_param == "target_vol":
-        param_values = np.arange(0.10, 0.61, 0.05)
-        results = []
-        for v in param_values:
-            r = run_backtest(prob, close, threshold=threshold, fee=fee,
-                             target_annual_vol=v, max_drawdown_pct=max_dd,
-                             kelly_cap=kelly_cap, use_vol_target=use_vol_target,
-                             use_circuit_breaker=use_breaker)
-            results.append({"value": v, "sharpe": r["sharpe"], "final_value": r["final_value"],
-                            "max_dd": r["max_dd"], "n_trades": r["n_trades"]})
-    elif sensitivity_param == "max_dd":
-        param_values = np.arange(0.05, 0.31, 0.025)
-        results = []
-        for v in param_values:
-            r = run_backtest(prob, close, threshold=threshold, fee=fee,
-                             target_annual_vol=target_vol, max_drawdown_pct=v,
-                             kelly_cap=kelly_cap, use_vol_target=use_vol_target,
-                             use_circuit_breaker=use_breaker)
-            results.append({"value": v, "sharpe": r["sharpe"], "final_value": r["final_value"],
-                            "max_dd": r["max_dd"], "n_trades": r["n_trades"]})
-    else:  # kelly_cap
-        param_values = np.arange(0.25, 1.01, 0.05)
-        results = []
-        for v in param_values:
-            r = run_backtest(prob, close, threshold=threshold, fee=fee,
-                             target_annual_vol=target_vol, max_drawdown_pct=max_dd,
-                             kelly_cap=v, use_vol_target=use_vol_target,
-                             use_circuit_breaker=use_breaker)
-            results.append({"value": v, "sharpe": r["sharpe"], "final_value": r["final_value"],
-                            "max_dd": r["max_dd"], "n_trades": r["n_trades"]})
+# Build a cache key from the current backtest config + the selected param.
+# If any of these change, we recompute; otherwise we reuse session_state.
+cache_key = (
+    sensitivity_param,
+    round(threshold, 4),
+    round(target_vol, 4),
+    round(max_dd, 4),
+    round(kelly_cap, 4),
+    round(fee, 6),
+    use_vol_target,
+    use_breaker,
+)
 
-    sens_df = pd.DataFrame(results)
+# Check if we have cached results for this exact configuration
+if "sens_cache" not in st.session_state:
+    st.session_state["sens_cache"] = {}
 
-    # Plot sensitivity
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=sens_df["value"],
-            y=sens_df["sharpe"],
-            mode="lines+markers",
-            name="Sharpe Ratio",
-            line=dict(color="#00d4ff", width=2),
-            yaxis="y",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=sens_df["value"],
-            y=sens_df["final_value"],
-            mode="lines+markers",
-            name="Final Value",
-            line=dict(color="#f59e0b", width=2),
-            yaxis="y2",
-        )
-    )
-    fig.update_layout(
-        title=f"Sensitivity to {sensitivity_param.replace('_', ' ').title()}",
-        xaxis_title=sensitivity_param.replace("_", " ").title(),
-        yaxis=dict(title="Sharpe Ratio", side="left"),
-        yaxis2=dict(title="Final Value", side="right", overlaying="y"),
-        template="plotly_dark",
-        height=400,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    )
-    st.plotly_chart(fig, use_container_width=True)
+if cache_key in st.session_state["sens_cache"]:
+    sens_df = st.session_state["sens_cache"][cache_key]
+    # Display a small note that results are cached
+    st.caption("📦 Results loaded from session cache (adjust a slider to recompute)")
+else:
+    # Run sensitivity scan (only if not cached)
+    with st.spinner(f"Scanning {sensitivity_param}..."):
+        if sensitivity_param == "threshold":
+            param_values = np.arange(0.30, 0.71, 0.05)
+            results = []
+            for v in param_values:
+                r = run_backtest(prob, close, threshold=v, fee=fee,
+                                 target_annual_vol=target_vol, max_drawdown_pct=max_dd,
+                                 kelly_cap=kelly_cap, use_vol_target=use_vol_target,
+                                 use_circuit_breaker=use_breaker)
+                results.append({"value": v, "sharpe": r["sharpe"], "final_value": r["final_value"],
+                                "max_dd": r["max_dd"], "n_trades": r["n_trades"]})
+        elif sensitivity_param == "target_vol":
+            param_values = np.arange(0.10, 0.61, 0.05)
+            results = []
+            for v in param_values:
+                r = run_backtest(prob, close, threshold=threshold, fee=fee,
+                                 target_annual_vol=v, max_drawdown_pct=max_dd,
+                                 kelly_cap=kelly_cap, use_vol_target=use_vol_target,
+                                 use_circuit_breaker=use_breaker)
+                results.append({"value": v, "sharpe": r["sharpe"], "final_value": r["final_value"],
+                                "max_dd": r["max_dd"], "n_trades": r["n_trades"]})
+        elif sensitivity_param == "max_dd":
+            param_values = np.arange(0.05, 0.31, 0.025)
+            results = []
+            for v in param_values:
+                r = run_backtest(prob, close, threshold=threshold, fee=fee,
+                                 target_annual_vol=target_vol, max_drawdown_pct=v,
+                                 kelly_cap=kelly_cap, use_vol_target=use_vol_target,
+                                 use_circuit_breaker=use_breaker)
+                results.append({"value": v, "sharpe": r["sharpe"], "final_value": r["final_value"],
+                                "max_dd": r["max_dd"], "n_trades": r["n_trades"]})
+        else:  # kelly_cap
+            param_values = np.arange(0.25, 1.01, 0.05)
+            results = []
+            for v in param_values:
+                r = run_backtest(prob, close, threshold=threshold, fee=fee,
+                                 target_annual_vol=target_vol, max_drawdown_pct=max_dd,
+                                 kelly_cap=v, use_vol_target=use_vol_target,
+                                 use_circuit_breaker=use_breaker)
+                results.append({"value": v, "sharpe": r["sharpe"], "final_value": r["final_value"],
+                                "max_dd": r["max_dd"], "n_trades": r["n_trades"]})
 
-    st.dataframe(sens_df.round(4), use_container_width=True, hide_index=True)
+        sens_df = pd.DataFrame(results)
+        # Store in session_state for reuse
+        st.session_state["sens_cache"][cache_key] = sens_df
+
+# Plot sensitivity
+fig = go.Figure()
+fig.add_trace(
+    go.Scatter(
+        x=sens_df["value"],
+        y=sens_df["sharpe"],
+        mode="lines+markers",
+        name="Sharpe Ratio",
+        line=dict(color="#00d4ff", width=2),
+        yaxis="y",
+    )
+)
+fig.add_trace(
+    go.Scatter(
+        x=sens_df["value"],
+        y=sens_df["final_value"],
+        mode="lines+markers",
+        name="Final Value",
+        line=dict(color="#f59e0b", width=2),
+        yaxis="y2",
+    )
+)
+fig.update_layout(
+    title=f"Sensitivity to {sensitivity_param.replace('_', ' ').title()}",
+    xaxis_title=sensitivity_param.replace("_", " ").title(),
+    yaxis=dict(title="Sharpe Ratio", side="left"),
+    yaxis2=dict(title="Final Value", side="right", overlaying="y"),
+    template="plotly_dark",
+    height=400,
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+)
+st.plotly_chart(fig, use_container_width=True)
+
+st.dataframe(sens_df.round(4), use_container_width=True, hide_index=True)
 
 st.markdown("---")
 st.caption("🎛️ Backtest Simulator — Interactive parameter tuning using the same LSTM probabilities as the pipeline. The 'Original (Pipeline)' line shows the default parameters for comparison.")
