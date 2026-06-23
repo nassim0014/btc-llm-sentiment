@@ -107,6 +107,70 @@ def fetch_live_btc() -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------
+# Live crypto news sentiment ticker
+# ---------------------------------------------------------------------
+@st.cache_data(ttl=600)
+def fetch_live_sentiment() -> Optional[dict]:
+    """Fetch the latest crypto news headlines and compute a sentiment score.
+
+    Uses the pre-computed TextBlob sentiment embedded in the cryptonews.csv
+    (same data source as the pipeline). Returns the latest headline, its
+    sentiment score, and a 7-day daily sentiment trend.
+
+    Returns None on failure.
+    """
+    try:
+        import requests
+        from io import StringIO
+        import ast
+
+        NEWS_URL = "https://raw.githubusercontent.com/nassim0014/btc-llm-sentiment/main/Data/cryptonews.csv"
+        r = requests.get(NEWS_URL, timeout=30)
+        r.raise_for_status()
+        news = pd.read_csv(StringIO(r.text))
+
+        # Parse the embedded sentiment dict
+        def parse_sentiment(s):
+            try:
+                d = ast.literal_eval(s) if isinstance(s, str) else {}
+                return float(d.get("polarity", 0.0))
+            except Exception:
+                return 0.0
+
+        news["sentiment"] = news["sentiment"].apply(parse_sentiment)
+        news["date"] = pd.to_datetime(news["date"], format="mixed", utc=True, errors="coerce")
+        news = news.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
+
+        # Latest headline
+        latest = news.iloc[-1]
+        latest_headline = str(latest.get("title", "N/A"))[:120]
+        latest_sentiment = float(latest["sentiment"])
+
+        # Daily sentiment trend (last 7 days with data)
+        news["date_day"] = news["date"].dt.tz_convert(None).dt.floor("D")
+        daily = news.groupby("date_day")["sentiment"].mean().tail(7).reset_index()
+        daily.columns = ["date", "sentiment"]
+
+        # Sentiment label
+        if latest_sentiment > 0.2:
+            label = "🟢 Bullish"
+        elif latest_sentiment < -0.2:
+            label = "🔴 Bearish"
+        else:
+            label = "🟡 Neutral"
+
+        return {
+            "latest_headline": latest_headline,
+            "latest_sentiment": latest_sentiment,
+            "label": label,
+            "daily_trend": daily,
+            "source_date": str(latest["date"]),
+        }
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------
 # Header
 # ---------------------------------------------------------------------
 st.title("📈 BTC Sentiment-Driven LSTM Trading Dashboard")
@@ -171,6 +235,58 @@ if live_btc is not None:
     st.caption(f"📅 Data via yfinance • Cached for 5 minutes • Last updated: {pd.Timestamp.now(tz='UTC').strftime('%Y-%m-%d %H:%M UTC')}")
 else:
     st.warning("⚠️ Could not fetch live BTC price. The yfinance API may be rate-limited or unavailable. Pipeline results below are still available.")
+
+# ---------------------------------------------------------------------
+# Live crypto news sentiment ticker
+# ---------------------------------------------------------------------
+st.markdown("---")
+st.subheader("📰 Live Crypto News Sentiment")
+
+live_sentiment = fetch_live_sentiment()
+
+if live_sentiment is not None:
+    col_sent, col_label, col_trend = st.columns([3, 1, 3])
+
+    with col_sent:
+        st.markdown("**Latest Headline:**")
+        st.markdown(f"*\"{live_sentiment['latest_headline']}...\"*")
+        st.caption(f"📅 Source date: {live_sentiment['source_date'][:19]}")
+
+    with col_label:
+        sent_val = live_sentiment["latest_sentiment"]
+        st.metric(
+            label="Sentiment Score",
+            value=f"{sent_val:+.3f}",
+        )
+        st.markdown(f"**{live_sentiment['label']}**")
+
+    with col_trend:
+        import plotly.graph_objects as go
+        trend = live_sentiment["daily_trend"]
+        fig = go.Figure()
+        fig.add_trace(
+            go.Bar(
+                x=trend["date"],
+                y=trend["sentiment"],
+                marker_color=["#16a34a" if v >= 0 else "#dc2626" for v in trend["sentiment"]],
+                name="Daily Sentiment",
+                hovertemplate="Date: %{x|%Y-%m-%d}<br>Sentiment: %{y:.3f}<extra></extra>",
+            )
+        )
+        fig.update_layout(
+            title="7-Day Sentiment Trend",
+            template="plotly_dark",
+            height=200,
+            margin=dict(l=0, r=0, t=30, b=0),
+            yaxis=dict(title="", range=[-1, 1], zeroline=True, zerolinecolor="rgba(255,255,255,0.3)"),
+            xaxis=dict(showgrid=False),
+            showlegend=False,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.caption("📰 Data from cryptonews.csv (GitHub raw) • TextBlob sentiment • Cached for 10 minutes")
+else:
+    st.warning("⚠️ Could not fetch live news sentiment. The cryptonews.csv may be unavailable.")
 
 # ---------------------------------------------------------------------
 # Load key data
