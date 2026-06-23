@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="YOUR_STREAMLIT_APP_URL_HERE">
+  <a href="https://nassim0014-btc-llm-sentiment.streamlit.app">
     <img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Open in Streamlit">
   </a>
   &nbsp;
