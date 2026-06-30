@@ -6,7 +6,7 @@ This directory contains audit reports for the BTC Sentiment-Driven LSTM Pipeline
 
 | Date | Report | Summary |
 |------|--------|---------|
-| 2025-06-30 | [btc-llm-sentiment-audit.pdf](./btc-llm-sentiment-audit.pdf) | Security-first production-readiness hardening pass. Fixed pickle RCE risk (5 files), supply-chain issues (auto-commit-to-main, unpinned HuggingFace models), unpinned dependencies, missing Dockerfile/CI/DX files. 27 tests pass. |
+| 2026-06-30 | [btc-llm-sentiment-audit.pdf](./btc-llm-sentiment-audit.pdf) | Security-first production-readiness hardening pass. Fixed pickle RCE risk (5 files), supply-chain issues (auto-commit-to-main, unpinned HuggingFace models), unpinned dependencies, missing Dockerfile/CI/DX files. 27 tests pass. |
 
 ## Purpose
 
