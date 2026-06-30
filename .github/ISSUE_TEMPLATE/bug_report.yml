@@ -1,0 +1,84 @@
+---
+name: 🐛 Bug Report
+description: Report something that is broken or behaving unexpectedly
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug report!
+        If this is a security vulnerability, **DO NOT** use this form — see [SECURITY.md](../../security/policy) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the unexpected behavior. Include the smallest reproducible example.
+      placeholder: "When I run `make phase2`, the Optuna search crashes with ValueError on trial 3."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - Data pipeline (fetch / ETL)
+        - FinBERT sentiment inference
+        - LSTM model training
+        - Risk-managed backtester
+        - Walk-forward CV / Optuna
+        - SHAP interpretability
+        - Streamlit dashboard
+        - Sentiment alert system
+        - CI / Docker
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment
+      options:
+        - Local (Makefile + venv)
+        - Google Colab (T4 GPU)
+        - Streamlit Cloud
+        - Docker
+        - CI (GitHub Actions)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Python version / commit SHA
+      placeholder: "Python 3.11.x, commit abc1234"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Paste relevant logs. **Redact secrets first.** Use ```backticks```.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

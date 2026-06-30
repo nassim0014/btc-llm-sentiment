@@ -7,8 +7,11 @@ This script:
   4. Builds the feature matrix
   5. Saves notebooks/interim/features_for_lstm.pkl and merged_with_llm_sentiment.parquet
 """
-import sys, os, pickle, ast
+import ast
+import pickle
+import sys
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import yfinance as yf

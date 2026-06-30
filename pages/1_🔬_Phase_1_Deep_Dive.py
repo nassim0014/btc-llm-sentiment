@@ -9,11 +9,10 @@ Interactive visualizations for the Phase 1 pipeline:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
-import plotly.graph_objects as go
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 st.set_page_config(page_title="Phase 1 Deep-Dive", page_icon="🔬", layout="wide")
@@ -23,7 +22,7 @@ OUTPUTS = ROOT / "outputs"
 
 
 @st.cache_data(ttl=300)
-def load_csv(filename: str) -> Optional[pd.DataFrame]:
+def load_csv(filename: str) -> pd.DataFrame | None:
     path = OUTPUTS / filename
     if not path.exists():
         st.warning(f"Data file not found: `outputs/{filename}`. Run the Phase 1 pipeline first.")

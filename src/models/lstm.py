@@ -14,8 +14,6 @@ The hyperparameter schema matches the Optuna search space:
 """
 from __future__ import annotations
 
-from typing import Optional
-
 import tensorflow as tf
 from tensorflow.keras import layers, models, regularizers
 
@@ -73,7 +71,7 @@ def build_lstm_with_params(
 
     model = models.Model(inp, out, name=f"lstm_u{units}_l{num_layers}_d{dropout}")
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(lr),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
         loss="binary_crossentropy",
         metrics=["accuracy", tf.keras.metrics.AUC(name="auc")],
     )
@@ -85,7 +83,7 @@ def make_model_factory(hp: dict, n_features: int):
 
     This is the interface expected by `run_walk_forward(model_factory=...)`.
     """
-    def factory() -> "tf.keras.Model":
+    def factory() -> tf.keras.Model:
         """Build and return a fresh compiled LSTM model from the captured hyperparameters."""
         return build_lstm_with_params(
             lr=hp["lr"],

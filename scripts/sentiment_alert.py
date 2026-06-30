@@ -23,44 +23,49 @@ GitHub Actions:
 from __future__ import annotations
 
 import ast
-import json
 import os
 import smtplib
-from datetime import datetime, timezone
-from email.mime.text import MIMEText
+
+# Use centralized config
+import sys
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from io import StringIO
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import requests
 
-# ---------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
-ALERT_LOG = ROOT / "audit" / "sentiment_alerts.csv"
-ALERT_LOG.parent.mkdir(parents=True, exist_ok=True)
+sys.path.insert(0, str(ROOT))
+from src.config import (
+    ALERT_LOG_PATH,
+    ALERT_THRESHOLDS,
+    NEWS_URL,
+    REQUEST_TIMEOUT_SECONDS,
+    USER_AGENT,
+)
 
-NEWS_URL = "https://raw.githubusercontent.com/nassim0014/btc-llm-sentiment/main/Data/cryptonews.csv"
-
-# Alert thresholds
-THRESHOLDS = {
-    "very_bullish": 0.3,
-    "bullish": 0.1,
-    "bearish": -0.1,
-    "very_bearish": -0.3,
-}
+# ---------------------------------------------------------------------
+# Configuration (imported from src.config)
+# ---------------------------------------------------------------------
+# NEWS_URL, ALERT_LOG_PATH, ALERT_THRESHOLDS, USER_AGENT, REQUEST_TIMEOUT_SECONDS
+# are all defined in src/config.py now.
+THRESHOLDS = ALERT_THRESHOLDS  # alias for backwards-compat with the rest of this file
 
 
 # ---------------------------------------------------------------------
 # Sentiment fetch
 # ---------------------------------------------------------------------
-def fetch_latest_sentiment() -> Optional[dict]:
+def fetch_latest_sentiment() -> dict | None:
     """Fetch the latest crypto news sentiment from the GitHub-hosted CSV."""
     try:
-        r = requests.get(NEWS_URL, timeout=60)
+        r = requests.get(
+            NEWS_URL,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+            headers={"User-Agent": USER_AGENT},
+        )
         r.raise_for_status()
         news = pd.read_csv(StringIO(r.text))
         news["date"] = pd.to_datetime(news["date"], format="mixed", utc=True, errors="coerce")
@@ -87,7 +92,7 @@ def fetch_latest_sentiment() -> Optional[dict]:
             "daily_avg_sentiment": float(daily_avg),
             "source_date": str(latest["date"]),
             "headline_count_24h": len(recent),
-            "fetch_time": datetime.now(timezone.utc).isoformat(),
+            "fetch_time": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         print(f"[ERROR] Could not fetch sentiment: {e}")
@@ -97,7 +102,7 @@ def fetch_latest_sentiment() -> Optional[dict]:
 # ---------------------------------------------------------------------
 # Alert evaluation
 # ---------------------------------------------------------------------
-def evaluate_alert(sentiment_data: dict) -> Optional[dict]:
+def evaluate_alert(sentiment_data: dict) -> dict | None:
     """Determine if an alert should be fired based on sentiment thresholds."""
     avg = sentiment_data["daily_avg_sentiment"]
 
@@ -226,14 +231,14 @@ def send_slack_alert(alert: dict) -> bool:
                         {"title": "Source Date", "value": alert["source_date"][:19], "short": True},
                     ],
                     "footer": "BTC Sentiment-Driven LSTM Pipeline",
-                    "ts": int(datetime.now(timezone.utc).timestamp()),
+                    "ts": int(datetime.now(UTC).timestamp()),
                 }
             ]
         }
 
         r = requests.post(webhook_url, json=payload, timeout=10)
         r.raise_for_status()
-        print(f"  [ok] Slack alert sent")
+        print("  [ok] Slack alert sent")
         return True
     except Exception as e:
         print(f"  [ERROR] Slack failed: {e}")
@@ -275,7 +280,7 @@ def send_discord_alert(alert: dict) -> bool:
 
         r = requests.post(webhook_url, json=payload, timeout=10)
         r.raise_for_status()
-        print(f"  [ok] Discord alert sent")
+        print("  [ok] Discord alert sent")
         return True
     except Exception as e:
         print(f"  [ERROR] Discord failed: {e}")
@@ -299,8 +304,8 @@ def log_alert(alert: dict, channels_sent: list[str]) -> None:
         ",".join(channels_sent) if channels_sent else "none",
     ]
 
-    file_exists = ALERT_LOG.exists()
-    with ALERT_LOG.open("a", newline="") as f:
+    file_exists = ALERT_LOG_PATH.exists()
+    with ALERT_LOG_PATH.open("a", newline="") as f:
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow([
@@ -308,14 +313,14 @@ def log_alert(alert: dict, channels_sent: list[str]) -> None:
                 "source_date", "headline_count", "channels_sent",
             ])
         writer.writerow(row)
-    print(f"  [ok] Alert logged to {ALERT_LOG}")
+    print(f"  [ok] Alert logged to {ALERT_LOG_PATH}")
 
 
 # ---------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------
 def main(dry_run: bool = False) -> None:
-    print(f"[{datetime.now(timezone.utc).isoformat()}] Sentiment Alert System starting ...")
+    print(f"[{datetime.now(UTC).isoformat()}] Sentiment Alert System starting ...")
 
     # Fetch latest sentiment
     print("\n[1/3] Fetching latest crypto news sentiment ...")
@@ -361,7 +366,7 @@ def main(dry_run: bool = False) -> None:
     # Log the alert
     log_alert(alert, channels_sent)
 
-    print(f"\n[{datetime.now(timezone.utc).isoformat()}] Alert system complete.")
+    print(f"\n[{datetime.now(UTC).isoformat()}] Alert system complete.")
 
 
 if __name__ == "__main__":

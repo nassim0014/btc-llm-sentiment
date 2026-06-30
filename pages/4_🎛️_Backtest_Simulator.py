@@ -9,12 +9,10 @@ but with user-controlled parameters.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 import streamlit as st
 
 st.set_page_config(page_title="Backtest Simulator", page_icon="🎛️", layout="wide")
@@ -27,7 +25,7 @@ OUTPUTS = ROOT / "outputs"
 # Data loaders
 # ---------------------------------------------------------------------
 @st.cache_data(ttl=300)
-def load_equity_curve() -> Optional[pd.DataFrame]:
+def load_equity_curve() -> pd.DataFrame | None:
     """Load the risk-managed equity curve with raw probabilities."""
     path = OUTPUTS / "risk_managed_equity_curve.csv"
     if not path.exists():
@@ -39,7 +37,7 @@ def load_equity_curve() -> Optional[pd.DataFrame]:
 
 
 @st.cache_data(ttl=300)
-def load_strategy_comparison() -> Optional[pd.DataFrame]:
+def load_strategy_comparison() -> pd.DataFrame | None:
     """Load the original strategy comparison for reference."""
     path = OUTPUTS / "strategy_comparison.csv"
     if not path.exists():
@@ -205,7 +203,7 @@ prob = equity_data["raw_prob"].values
 
 # Actually, the cleanest approach: fetch the test-window BTC closes
 @st.cache_data(ttl=300)
-def fetch_test_btc() -> Optional[np.ndarray]:
+def fetch_test_btc() -> np.ndarray | None:
     """Fetch BTC closes for the test window (Sep-Dec 2024)."""
     try:
         import yfinance as yf
