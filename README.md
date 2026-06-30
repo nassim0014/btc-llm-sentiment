@@ -19,12 +19,19 @@
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open Phase 2 in Colab">
   </a>
   &nbsp;
-  <a href="https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/test.yml">
-    <img src="https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/test.yml/badge.svg" alt="Tests">
+  <a href="https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/ci.yml">
+    <img src="https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI">
   </a>
   &nbsp;
-  <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue" alt="Python 3.11 / 3.12">
+  &nbsp;
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
+  &nbsp;
+  <img src="https://img.shields.io/badge/code%20style-ruff-000000.svg" alt="ruff">
+  &nbsp;
+  <img src="https://img.shields.io/badge/security-bandit-4A154B.svg" alt="bandit">
+  &nbsp;
+  <img src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit" alt="pre-commit">
 </p>
 
 A reproducible end-to-end pipeline combining natural-language sentiment signals with deep-learning price forecasting and production-grade risk management.
@@ -444,6 +451,13 @@ The `tests/test_backtest.py` suite (15 tests, ~3 sec) covers:
 - **Strategy Comparison** (2 tests): returns all three strategies, Buy & Hold final value matches close ratio
 - **OOF Metrics** (2 tests): perfect predictions yield 1.0 accuracy, random predictions hover near 0.5
 
+Plus `tests/test_safe_pickle.py` (12 tests) covering the safe pickle loader:
+- Centralized config exposes required constants
+- SHA256 integrity verification (rejects tampered bundles)
+- Restricted unpickler blocks `os.system`, `subprocess.Popen`, `eval`
+- Legitimate bundle (numpy + StandardScaler) loads correctly
+- On-disk artifact hashes match pinned values in `src/config.py`
+
 Run locally:
 ```bash
 make test
@@ -453,12 +467,29 @@ pytest tests/ -v
 
 ### CI Workflow
 
-`.github/workflows/test.yml` runs on every push and pull request:
+`.github/workflows/ci.yml` runs on every push and pull request:
 - **Matrix**: Python 3.11 + 3.12
-- **Steps**: syntax-check all `src/` and `scripts/` Python files, then run the pytest suite
-- **Lightweight**: only installs `numpy pandas scikit-learn pytest` (skips heavy ML deps like TensorFlow/torch — the test suite exercises pure-Python backtest + CV logic only)
+- **Jobs**: lint (ruff), SAST (bandit), pytest with coverage, pip-audit (blocking on main), gitleaks, trivy container scan, Docker build smoke test
+- **Lightweight**: test job only installs `numpy pandas scikit-learn pytest ruff bandit` (skips heavy ML deps — the test suite exercises pure-Python backtest + CV logic only)
+- **SARIF**: trivy + gitleaks results uploaded to the GitHub Security tab
 
-[![Tests](https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/test.yml/badge.svg)](https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/test.yml)
+[![CI](https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/ci.yml)
+
+---
+
+## Security
+
+This is an ML pipeline with an interactive Streamlit dashboard. The highest-risk surface is the **pickle deserialization of committed model artifacts** (the `.pkl` file that powers Live Predictions).
+
+**Mitigations in place:**
+- **SHA256 integrity verification** — `src/utils/safe_pickle.py` verifies the hash of `features_for_lstm.pkl` before loading. Hash is pinned in `src/config.py::BUNDLE_SHA256`. Updating requires a code change + PR review.
+- **Restricted unpickler** — only allows numpy arrays, sklearn `StandardScaler`, and built-in collections. Any other class import (e.g. `os.system`) is blocked.
+- **HuggingFace model revisions pinned** — `ProsusAI/finbert` and `distilbert` are loaded at pinned git SHAs to defend against supply-chain attacks on HF Hub.
+- **Dependency pinning** — all deps in `requirements.txt` pinned to exact versions for ML reproducibility.
+- **CI scanning** — `pip-audit` (blocking on main), `bandit` SAST, `gitleaks` secret scan, `trivy` container image scan. SARIF uploaded to GitHub Security tab.
+- **Supply-chain hygiene** — `sentiment_alert.yml` no longer auto-commits to main; alert logs are uploaded as workflow artifacts.
+
+See [`SECURITY.md`](./SECURITY.md) for the full policy and [`MODEL_CARD.md`](./MODEL_CARD.md) for ML model documentation.
 
 ---
 

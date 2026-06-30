@@ -34,12 +34,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
-import numpy as np
 from tqdm.auto import tqdm
 
 logger = logging.getLogger(__name__)
@@ -47,9 +44,14 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------
 # Default model candidates (loaded in order)
 # ----------------------------------------------------------------------
+# Each entry is (model_id, revision_sha) — pinning the revision protects
+# against supply-chain attacks where a model author (or a compromised HF
+# account) pushes a malicious update. To get the latest revision:
+#   curl -s https://huggingface.co/api/models/<model_id> | jq -r .sha
 DEFAULT_MODELS = [
-    "ProsusAI/finbert",                                   # finance-tuned BERT, 3 classes
-    "distilbert-base-uncased-finetuned-sst-2-english",    # fallback: general 2-class
+    ("ProsusAI/finbert", "4556d13015211d73dccd3fdd39d39232506f3e43"),
+    ("distilbert/distilbert-base-uncased-finetuned-sst-2-english",
+     "714eb0fa89d2f80546fda750413ed43d93601a13"),
 ]
 
 # Default T4-optimized settings
@@ -85,13 +87,13 @@ def df_fingerprint(df: pd.DataFrame) -> str:
 def score_with_finbert(
     news: pd.DataFrame,
     model_name: str = "ProsusAI/finbert",
-    fallback_models: Optional[list[str]] = None,
+    fallback_models: list[str] | None = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     max_length: int = DEFAULT_MAX_LENGTH,
     use_fp16: bool = True,
     text_col: str = "text",
     title_col: str = "title",
-    device: Optional[int] = None,
+    device: int | None = None,
     progress: bool = True,
 ) -> pd.DataFrame:
     """Score every headline with a HuggingFace transformer.
@@ -125,7 +127,7 @@ def score_with_finbert(
         Same as input with an added `llm_sentiment` column in [-1, 1].
     """
     import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
     # ---- Device detection ----
     if device is None:
@@ -134,14 +136,34 @@ def score_with_finbert(
     logger.info(f"Device: {device_name} | batch={batch_size} | max_len={max_length} | fp16={use_fp16}")
 
     # ---- Model loading with fallback ----
-    candidates = [model_name] + (fallback_models or DEFAULT_MODELS[1:])
+    # `candidates` is a list of (model_name, revision) tuples. The revision
+    # is a pinned git SHA on the HuggingFace Hub — defense against supply-
+    # chain attacks (model author pushes a malicious update).
+    if isinstance(model_name, str):
+        # Caller passed a bare model name; look up the pinned revision
+        # in DEFAULT_MODELS, fall back to "main" if unknown.
+        pinned = dict(DEFAULT_MODELS)
+        candidates = [(model_name, pinned.get(model_name, "main"))]
+    else:
+        candidates = [model_name]
+    # Append fallback models (always pinned)
+    candidates += [(m, r) for m, r in DEFAULT_MODELS[1:] if m != model_name]
+    # Allow caller-supplied fallback_models (as bare strings for backwards compat)
+    if fallback_models:
+        pinned = dict(DEFAULT_MODELS)
+        for fm in fallback_models:
+            if isinstance(fm, str):
+                candidates.append((fm, pinned.get(fm, "main")))
+            elif isinstance(fm, tuple):
+                candidates.append(fm)
+
     pipe = None
     loaded_model_name = None
-    for name in candidates:
+    for name, revision in candidates:
         try:
-            logger.info(f"Loading {name} ...")
-            tok = AutoTokenizer.from_pretrained(name)
-            mdl = AutoModelForSequenceClassification.from_pretrained(name)
+            logger.info(f"Loading {name} @ {revision[:8]} ...")
+            tok = AutoTokenizer.from_pretrained(name, revision=revision)  # nosec B615 — revision pinned
+            mdl = AutoModelForSequenceClassification.from_pretrained(name, revision=revision)  # nosec B615 — revision pinned
             if device == 0:
                 mdl = mdl.to(device)
                 if use_fp16:
@@ -153,11 +175,11 @@ def score_with_finbert(
                 truncation=True,
                 max_length=max_length,
             )
-            loaded_model_name = name
-            logger.info(f"  -> loaded {name}")
+            loaded_model_name = f"{name}@{revision[:8]}"
+            logger.info(f"  -> loaded {loaded_model_name}")
             break
         except Exception as e:
-            logger.warning(f"  ! {name} failed: {e}")
+            logger.warning(f"  ! {name} @ {revision[:8]} failed: {e}")
     if pipe is None:
         raise RuntimeError("No sentiment model could be loaded.")
     print(f"[finbert] Using model: {loaded_model_name}")
@@ -184,7 +206,9 @@ def score_with_finbert(
             batch = texts[i : i + batch_size]
             try:
                 if use_fp16 and device == 0:
-                    with torch.cuda.amp.autocast():
+                    # torch.cuda.amp.autocast was deprecated in torch 2.4;
+                    # torch.amp.autocast('cuda') is the new API.
+                    with torch.amp.autocast("cuda"):
                         results = pipe(batch)
                 else:
                     results = pipe(batch)
@@ -195,7 +219,7 @@ def score_with_finbert(
                 for t in batch:
                     try:
                         if use_fp16 and device == 0:
-                            with torch.cuda.amp.autocast():
+                            with torch.amp.autocast("cuda"):
                                 results.append(pipe(t))
                         else:
                             results.append(pipe(t))

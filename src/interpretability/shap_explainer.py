@@ -17,10 +17,15 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    # Import only for type hints — tensorflow is heavy and not needed at
+    # import time. The actual model object is passed in by callers.
+    import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +34,12 @@ logger = logging.getLogger(__name__)
 # SHAP value computation
 # ---------------------------------------------------------------------
 def compute_shap_values(
-    model: "tf.keras.Model",
+    model: tf.keras.Model,
     background: np.ndarray,
     test_data: np.ndarray,
     feature_names: list[str],
     explainer_type: str = "deep",
-) -> Tuple[np.ndarray, str]:
+) -> tuple[np.ndarray, str]:
     """Compute SHAP values for a Keras model.
 
     Tries DeepExplainer → GradientExplainer → KernelExplainer in order.
@@ -57,8 +62,8 @@ def compute_shap_values(
     shap_values : np.ndarray, shape (n_test, n_features)
     used_explainer : str
     """
-    import shap
     import numpy as np
+    import shap
 
     # Limit background for performance
     if len(background) > 50:
@@ -137,9 +142,9 @@ def plot_shap_summary(
     title: str = "SHAP Feature Importance (Test Set)",
 ) -> None:
     """Generate a beeswarm summary plot."""
-    import shap
-    import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
+    import matplotlib.pyplot as plt
+    import shap
 
     try:
         fm.fontManager.addfont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
@@ -176,12 +181,12 @@ def plot_regime_comparison(
     feature_names: list[str],
     realized_vol: np.ndarray,
     output_path: Path,
-    vol_threshold: Optional[float] = None,
+    vol_threshold: float | None = None,
 ) -> dict:
     """Generate side-by-side beeswarm plots for high-vol vs low-vol regimes."""
-    import shap
-    import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
+    import matplotlib.pyplot as plt
+    import shap
 
     try:
         fm.fontManager.addfont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
@@ -252,7 +257,7 @@ def plot_regime_comparison(
 # End-to-end runner
 # ---------------------------------------------------------------------
 def run_shap_analysis(
-    model: "tf.keras.Model",
+    model: tf.keras.Model,
     train_x: np.ndarray,
     test_x: np.ndarray,
     feature_names: list[str],
@@ -329,7 +334,7 @@ def run_shap_analysis(
     }).sort_values("mean_abs_shap", ascending=False)
     importance_df.to_csv(output_dir / "shap_feature_importance.csv", index=False)
 
-    print(f"\nTop 10 features by mean |SHAP|:")
+    print("\nTop 10 features by mean |SHAP|:")
     print(importance_df.head(10).to_string(index=False))
 
     return {

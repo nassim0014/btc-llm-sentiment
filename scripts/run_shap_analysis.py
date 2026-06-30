@@ -2,10 +2,9 @@
 
 Loads the saved model, computes SHAP values, generates summary + regime plots.
 """
-import sys, os, pickle
+import os
+import sys
 from pathlib import Path
-import numpy as np
-import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -20,9 +19,9 @@ def main():
     print("SHAP Interpretability Analysis")
     print("=" * 60)
 
-    # Load features
-    with (INTERIM / "features_for_lstm.pkl").open("rb") as f:
-        bundle = pickle.load(f)
+    # Load features — use safe loader with SHA256 integrity check
+    from src.utils.safe_pickle import safe_load_bundle
+    bundle = safe_load_bundle()
 
     train_x = bundle["train_x"]
     test_x = bundle["test_x"]
@@ -49,7 +48,7 @@ def main():
     )
 
     print(f"\n{'='*60}")
-    print(f"SHAP Analysis Complete")
+    print("SHAP Analysis Complete")
     print(f"  Explainer used: {result['explainer_used']}")
     print(f"  SHAP values shape: {result['shap_values_shape']}")
     print(f"  Regime split: {result['regime_info']}")
