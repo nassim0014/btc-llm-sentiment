@@ -80,21 +80,20 @@ def load_lstm_model():
 
 
 @st.cache_data(ttl=300)
-def fetch_latest_btc(days: int = 60) -> pd.DataFrame | None:
-    """Fetch the latest BTC-USD daily candles via yfinance."""
-    try:
-        import yfinance as yf
-        btc = yf.download("BTC-USD", period=f"{days}d", auto_adjust=False, progress=False)
-        if btc is None or len(btc) == 0:
-            return None
-        if isinstance(btc.columns, pd.MultiIndex):
-            btc.columns = [" ".join(c).strip() for c in btc.columns]
-        btc = btc.reset_index().rename(columns={"Date": "date"})
-        btc.columns = [c.replace(" BTC-USD", "").lower() for c in btc.columns]
-        btc["date"] = pd.to_datetime(btc["date"]).dt.floor("D")
-        return btc
-    except Exception:
-        return None
+def fetch_latest_btc(days: int = 60) -> tuple[pd.DataFrame | None, str | None]:
+    """Fetch the latest BTC-USD daily candles.
+
+    Tries yfinance first; on failure falls back to CoinGecko.
+
+    Returns (df, source) where source is 'yfinance' or 'coingecko'.
+    Returns (None, error) if both sources fail.
+    """
+    from src.utils.crypto_data import fetch_btc_close
+
+    df, source = fetch_btc_close(days=days)
+    if df is not None:
+        return df, source
+    return None, source  # source contains the error message
 
 
 @st.cache_data(ttl=600)
@@ -251,11 +250,13 @@ col1, col2 = st.columns(2)
 
 with col1:
     with st.spinner("Fetching latest BTC-USD prices..."):
-        btc = fetch_latest_btc(days=60)
+        btc, btc_source = fetch_latest_btc(days=60)
     if btc is not None:
-        st.success(f"✅ Fetched {len(btc)} days of BTC-USD data (latest: {btc['date'].iloc[-1].date()})")
+        st.success(f"✅ Fetched {len(btc)} days of BTC-USD data via {btc_source} (latest: {btc['date'].iloc[-1].date()})")
     else:
         st.error("⚠️ Could not fetch BTC price data.")
+        if btc_source:
+            st.caption(f"**Error:** `{btc_source}`")
 
 with col2:
     with st.spinner("Fetching latest crypto news..."):
