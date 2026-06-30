@@ -29,17 +29,13 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
-import pandas as pd
-
 import optuna
 
 from src.cv.walk_forward import (
-    walk_forward_splits,
     evaluate_oof_metrics,
-    WalkForwardResult,
+    walk_forward_splits,
 )
 from src.models.lstm import make_model_factory
 
@@ -52,7 +48,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 # ---------------------------------------------------------------------
 # Search space
 # ---------------------------------------------------------------------
-def sample_hyperparameters(trial: "optuna.Trial") -> dict:
+def sample_hyperparameters(trial: optuna.Trial) -> dict:
     """Sample one set of hyperparameters from the Optuna search space.
 
     Parameters
@@ -77,7 +73,7 @@ def sample_hyperparameters(trial: "optuna.Trial") -> dict:
 # Objective — walk-forward CV with per-fold pruning
 # ---------------------------------------------------------------------
 def optuna_objective(
-    trial: "optuna.Trial",
+    trial: optuna.Trial,
     X: np.ndarray,
     y: np.ndarray,
     close: np.ndarray,
@@ -88,7 +84,7 @@ def optuna_objective(
     val_size: int = 60,
     epochs: int = 15,
     batch_size: int = 32,
-    class_weight: Optional[dict] = None,
+    class_weight: dict | None = None,
     fee: float = 0.001,
     threshold: float = 0.5,
 ) -> float:
@@ -202,12 +198,12 @@ def run_optuna_search(
     val_size: int = 60,
     epochs: int = 15,
     batch_size: int = 32,
-    class_weight: Optional[dict] = None,
+    class_weight: dict | None = None,
     fee: float = 0.001,
     threshold: float = 0.5,
     pruner_n_startup: int = 3,
     pruner_n_warmup: int = 2,
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
     seed: int = 42,
 ) -> dict:
     """Run a full Optuna hyperparameter search.

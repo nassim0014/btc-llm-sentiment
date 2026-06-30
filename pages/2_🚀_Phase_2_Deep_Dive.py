@@ -11,11 +11,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
-import plotly.graph_objects as go
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 st.set_page_config(page_title="Phase 2 Deep-Dive", page_icon="🚀", layout="wide")
@@ -25,7 +24,7 @@ OUTPUTS = ROOT / "outputs"
 
 
 @st.cache_data(ttl=300)
-def load_csv(filename: str) -> Optional[pd.DataFrame]:
+def load_csv(filename: str) -> pd.DataFrame | None:
     path = OUTPUTS / filename
     if not path.exists():
         st.warning(f"Data file not found: `outputs/{filename}`. Run the Phase 2 pipeline first.")
@@ -38,7 +37,7 @@ def load_csv(filename: str) -> Optional[pd.DataFrame]:
 
 
 @st.cache_data(ttl=300)
-def load_json(filename: str) -> Optional[dict]:
+def load_json(filename: str) -> dict | None:
     path = OUTPUTS / filename
     if not path.exists():
         st.warning(f"Data file not found: `outputs/{filename}`.")

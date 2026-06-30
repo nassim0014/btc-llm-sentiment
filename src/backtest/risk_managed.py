@@ -23,8 +23,7 @@ Risk Layers
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -43,7 +42,7 @@ class RiskManagedResult:
     kelly_fraction: np.ndarray      # (prob - threshold) / (1 - threshold)
     vol_target_factor: np.ndarray   # 20% target vol / realized 20d vol
     circuit_breaker_triggered: bool
-    breaker_trigger_day: Optional[int]
+    breaker_trigger_day: int | None
     metrics: dict
 
     def to_summary_dict(self) -> dict:

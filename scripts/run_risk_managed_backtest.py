@@ -5,8 +5,11 @@ test set, and runs the risk-managed backtester (Kelly + vol-targeting + DD break
 
 Output: outputs/risk_managed_backtest_results.csv
 """
-import sys, os, json, pickle
+import json
+import os
+import sys
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -23,13 +26,13 @@ def main():
     print("Risk-Managed Backtest (Kelly + Vol-Targeting + DD Breaker)")
     print("=" * 60)
 
-    # Load features
-    with (INTERIM / "features_for_lstm.pkl").open("rb") as f:
-        bundle = pickle.load(f)
+    # Load features — use safe loader with SHA256 integrity check
+    from src.utils.safe_pickle import safe_load_bundle
+    bundle = safe_load_bundle()
 
     train_x, train_y = bundle["train_x"], bundle["train_y"]
     val_x, val_y = bundle["val_x"], bundle["val_y"]
-    test_x, test_y = bundle["test_x"], bundle["test_y"]
+    test_x, _test_y = bundle["test_x"], bundle["test_y"]
     test_close = bundle["test_close"]
     test_dates = pd.to_datetime(bundle["test_dates"])
     n_features = train_x.shape[-1]
@@ -43,9 +46,10 @@ def main():
 
     # Build and train model with best params on train+val
     import tensorflow as tf
-    from tensorflow.keras import callbacks
-    from src.models.lstm import build_lstm_with_params
     from sklearn.utils.class_weight import compute_class_weight
+    from tensorflow.keras import callbacks
+
+    from src.models.lstm import build_lstm_with_params
 
     tf.get_logger().setLevel("ERROR")
     tf.random.set_seed(42)
@@ -57,7 +61,7 @@ def main():
 
     classes = np.unique(y_full)
     weights = compute_class_weight("balanced", classes=classes, y=y_full)
-    class_weight = {int(c): float(w) for c, w in zip(classes, weights)}
+    class_weight = {int(c): float(w) for c, w in zip(classes, weights, strict=False)}
 
     model = build_lstm_with_params(
         lr=hp["lr"], units=hp["units"], dropout=hp["dropout"],
@@ -86,7 +90,7 @@ def main():
     print(f"  Saved model → {INTERIM / 'best_optuna_model.keras'}")
 
     # Run risk-managed backtest
-    from src.backtest.risk_managed import risk_managed_backtest, compare_strategies
+    from src.backtest.risk_managed import compare_strategies, risk_managed_backtest
 
     print("\n--- Risk-Managed Backtest ---")
     rm = risk_managed_backtest(
