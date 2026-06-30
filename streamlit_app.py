@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import streamlit as st
@@ -38,7 +37,7 @@ OUTPUTS = ROOT / "outputs"
 # Data loaders (with error handling)
 # ---------------------------------------------------------------------
 @st.cache_data(ttl=300)
-def load_csv(filename: str) -> Optional[pd.DataFrame]:
+def load_csv(filename: str) -> pd.DataFrame | None:
     """Load a CSV from outputs/. Return None and show a warning if missing."""
     path = OUTPUTS / filename
     if not path.exists():
@@ -52,7 +51,7 @@ def load_csv(filename: str) -> Optional[pd.DataFrame]:
 
 
 @st.cache_data(ttl=300)
-def load_json(filename: str) -> Optional[dict]:
+def load_json(filename: str) -> dict | None:
     """Load a JSON file from outputs/."""
     path = OUTPUTS / filename
     if not path.exists():
@@ -67,50 +66,31 @@ def load_json(filename: str) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------
-# Live BTC price ticker (yfinance)
+# Live BTC price ticker (yfinance + CoinGecko fallback)
 # ---------------------------------------------------------------------
 @st.cache_data(ttl=300)
-def fetch_live_btc() -> Optional[dict]:
-    """Fetch live BTC-USD price + 7-day history via yfinance.
-    
-    Returns a dict with: price, change_24h_pct, history (DataFrame).
-    Returns None on failure (caller shows a warning).
+def fetch_live_btc() -> tuple[dict | None, str | None]:
+    """Fetch live BTC-USD price + 7-day history.
+
+    Tries yfinance first; on failure falls back to CoinGecko (free, no
+    API key, doesn't rate-limit cloud IPs like Yahoo does).
+
+    Returns (data, source) where source is 'yfinance' or 'coingecko'.
+    Returns (None, error) if both sources fail.
     """
-    try:
-        import yfinance as yf
-        btc = yf.download("BTC-USD", period="7d", interval="1h", progress=False, auto_adjust=False)
-        if btc is None or len(btc) == 0:
-            return None
-        # Flatten MultiIndex if present (newer yfinance versions)
-        if isinstance(btc.columns, pd.MultiIndex):
-            btc.columns = [" ".join(c).strip() for c in btc.columns]
-        # Get the latest close price
-        close_col = [c for c in btc.columns if "Close" in c][0]
-        current_price = float(btc[close_col].iloc[-1])
-        # 24h change: compare last value to ~24h ago (24 hourly candles)
-        if len(btc) >= 24:
-            prev_price = float(btc[close_col].iloc[-24])
-            change_pct = ((current_price - prev_price) / prev_price) * 100
-        else:
-            change_pct = 0.0
-        # Prepare history for sparkline
-        history = btc[[close_col]].copy()
-        history.columns = ["price"]
-        history.index.name = "datetime"
-        return {
-            "price": current_price,
-            "change_24h_pct": change_pct,
-            "history": history.reset_index(),
-        }
-    except Exception:
-        return None
+    from src.utils.crypto_data import fetch_btc_current
+
+    data, source = fetch_btc_current()
+    if data is not None:
+        return data, source
+    return None, source  # source contains the error message
 
 
 # ---------------------------------------------------------------------
 # Live crypto news sentiment ticker
 # ---------------------------------------------------------------------
 @st.cache_data(ttl=600)
-def fetch_live_sentiment() -> Optional[dict]:
+def fetch_live_sentiment() -> dict | None:
     """Fetch the latest crypto news headlines and compute a sentiment score.
 
     Uses the pre-computed TextBlob sentiment embedded in the cryptonews.csv
@@ -120,9 +100,10 @@ def fetch_live_sentiment() -> Optional[dict]:
     Returns None on failure.
     """
     try:
-        import requests
-        from io import StringIO
         import ast
+        from io import StringIO
+
+        import requests
 
         NEWS_URL = "https://raw.githubusercontent.com/nassim0014/btc-llm-sentiment/main/Data/cryptonews.csv"
         r = requests.get(NEWS_URL, timeout=30)
@@ -186,7 +167,7 @@ st.markdown(
 st.markdown("---")
 st.subheader("🔴 Live BTC-USD Price")
 
-live_btc = fetch_live_btc()
+live_btc, btc_source = fetch_live_btc()
 
 if live_btc is not None:
     col_price, col_change, col_chart = st.columns([1, 1, 4])
@@ -232,9 +213,11 @@ if live_btc is not None:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    st.caption(f"📅 Data via yfinance • Cached for 5 minutes • Last updated: {pd.Timestamp.now(tz='UTC').strftime('%Y-%m-%d %H:%M UTC')}")
+    st.caption(f"📅 Data via {btc_source} • Cached for 5 minutes • Last updated: {pd.Timestamp.now(tz='UTC').strftime('%Y-%m-%d %H:%M UTC')}")
 else:
-    st.warning("⚠️ Could not fetch live BTC price. The yfinance API may be rate-limited or unavailable. Pipeline results below are still available.")
+    st.warning("⚠️ Could not fetch live BTC price. Both yfinance and CoinGecko may be unavailable.")
+    if btc_source:
+        st.caption(f"**Error:** `{btc_source}`")
 
 # ---------------------------------------------------------------------
 # Live crypto news sentiment ticker

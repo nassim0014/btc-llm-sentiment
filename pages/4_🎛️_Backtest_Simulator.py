@@ -201,39 +201,45 @@ prob = equity_data["raw_prob"].values
 # So btc_ret[t-1] = (equity[t]/equity[t-1] - 1 + cost) / position[t-1]  (when position > 0)
 # This is approximate but works for the simulator.
 
-# Actually, the cleanest approach: fetch the test-window BTC closes
+# Fetch the test-window BTC closes — tries yfinance → CoinGecko → Binance
 @st.cache_data(ttl=300)
-def fetch_test_btc() -> np.ndarray | None:
-    """Fetch BTC closes for the test window (Sep-Dec 2024)."""
-    try:
-        import yfinance as yf
-        btc = yf.download("BTC-USD", start="2024-09-01", end="2024-12-31",
-                          auto_adjust=False, progress=False)
-        if isinstance(btc.columns, pd.MultiIndex):
-            btc.columns = [" ".join(c).strip() for c in btc.columns]
-        close_col = [c for c in btc.columns if "Close" in c][0]
-        # Align with equity_data length
-        closes = btc[close_col].values
-        # Trim to match the equity curve length
-        n = len(equity_data)
-        if len(closes) > n:
-            closes = closes[-n:]
-        elif len(closes) < n:
-            # Pad from the front
-            closes = np.pad(closes, (n - len(closes), 0), mode="edge")
-        return closes
-    except Exception:
-        return None
+def fetch_test_btc() -> tuple[np.ndarray | None, str | None]:
+    """Fetch BTC closes for the test window (Sep-Dec 2024).
+
+    Tries yfinance first, then CoinGecko (365-day limit may block this
+    range), then Binance (full historical data, no API key).
+
+    Returns (closes_array, source) or (None, error).
+    """
+    from src.utils.crypto_data import fetch_btc_range
+
+    df, source = fetch_btc_range("2024-09-01", "2024-12-31")
+    if df is None:
+        return None, source
+
+    closes = df["close"].values
+    # Align with equity_data length
+    n = len(equity_data)
+    if len(closes) > n:
+        closes = closes[-n:]
+    elif len(closes) < n:
+        # Pad from the front
+        closes = np.pad(closes, (n - len(closes), 0), mode="edge")
+    return closes, source
 
 
 with st.spinner("Fetching BTC prices for the test window..."):
-    close = fetch_test_btc()
+    close, btc_source = fetch_test_btc()
 
 if close is None:
-    st.warning("⚠️ Could not fetch BTC prices. Using approximate reconstruction from equity curve.")
+    st.warning("⚠️ Could not fetch BTC prices from any source (yfinance, CoinGecko, Binance). Using approximate reconstruction from equity curve.")
+    if btc_source:
+        st.caption(f"**Error:** `{btc_source}`")
     # Fallback: reconstruct from the original equity
     close = np.cumprod(1 + np.diff(equity_data["equity"].values, prepend=1.0)) * 100
     st.info(f"Using {len(close)} synthetic close prices for simulation.")
+else:
+    st.success(f"✅ Fetched {len(close)} days of real BTC prices via {btc_source}.")
 
 # ---------------------------------------------------------------------
 # Interactive controls
