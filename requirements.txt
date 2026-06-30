@@ -52,6 +52,6 @@ nbconvert==7.17.1
 # Listed here so pip-audit covers them too.
 pytest==8.3.3
 pytest-cov==5.0.0
-ruff==0.6.9
+ruff==0.15.20
 pip-audit==2.7.3
 bandit==1.7.10
