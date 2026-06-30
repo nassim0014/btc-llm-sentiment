@@ -28,8 +28,6 @@ from __future__ import annotations
 import argparse
 import ast
 import os
-import pickle
-import sys
 import warnings
 from io import StringIO
 from pathlib import Path
@@ -40,7 +38,13 @@ import requests
 import yfinance as yf
 from tqdm.auto import tqdm
 
-warnings.filterwarnings("ignore")
+# Selectively silence noisy upstream warnings (TF deprecation notices,
+# pandas chained-assignment). Do NOT use filterwarnings("ignore") — that
+# hides security and correctness warnings too.
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="tensorflow")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="keras")
+warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 # ---------------------------------------------------------------------
 # Config
@@ -70,13 +74,28 @@ np.random.seed(RANDOM_STATE)
 # ---------------------------------------------------------------------
 def fetch_news() -> pd.DataFrame:
     print(f"\n[Stage 1] Fetching news from {NEWS_URL} ...")
-    try:
-        r = requests.get(NEWS_URL, timeout=120)
-        r.raise_for_status()
-        df = pd.read_csv(StringIO(r.text))
-        print(f"  -> {len(df):,} rows fetched from remote.")
-    except Exception as e:
-        print(f"  ! remote fetch failed ({e}); falling back to local {LOCAL_NEWS}")
+    # Retry with exponential backoff — GitHub raw CDN occasionally returns 503.
+    last_err = None
+    df = None
+    for attempt in range(3):
+        try:
+            r = requests.get(
+                NEWS_URL,
+                timeout=120,
+                headers={"User-Agent": "btc-llm-sentiment/1.0 (+https://github.com/nassim0014/btc-llm-sentiment)"},
+            )
+            r.raise_for_status()
+            df = pd.read_csv(StringIO(r.text))
+            print(f"  -> {len(df):,} rows fetched from remote.")
+            break
+        except Exception as e:
+            last_err = e
+            print(f"  ! attempt {attempt+1}/3 failed: {e}")
+            if attempt < 2:
+                import time
+                time.sleep(2 ** attempt)
+    if df is None:
+        print(f"  ! all remote attempts failed ({last_err}); falling back to local {LOCAL_NEWS}")
         df = pd.read_csv(LOCAL_NEWS)
 
     # Bug Fix 2: mixed date formats
@@ -141,7 +160,7 @@ def score_with_llm(news: pd.DataFrame, quick: bool = False, use_precomputed: boo
 
     print("  -> running HuggingFace FinBERT (this is slow on CPU) ...")
     import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
     DEVICE = 0 if torch.cuda.is_available() else -1
     print(f"  -> torch device: {'cuda' if DEVICE == 0 else 'cpu'}")
@@ -154,8 +173,13 @@ def score_with_llm(news: pd.DataFrame, quick: bool = False, use_precomputed: boo
     for name in candidates:
         try:
             print(f"  -> loading {name} ...")
-            tok = AutoTokenizer.from_pretrained(name)
-            mdl = AutoModelForSequenceClassification.from_pretrained(name)
+            # Use the pinned revision from src.inference.finbert.DEFAULT_MODELS
+            # to defend against supply-chain attacks on HF Hub.
+            from src.inference.finbert import DEFAULT_MODELS as _HF_MODELS
+            _pinned = dict(_HF_MODELS)
+            _rev = _pinned.get(name, "main")
+            tok = AutoTokenizer.from_pretrained(name, revision=_rev)  # nosec B615 — revision pinned
+            mdl = AutoModelForSequenceClassification.from_pretrained(name, revision=_rev)  # nosec B615 — revision pinned
             pipe = pipeline("sentiment-analysis", model=mdl, tokenizer=tok, device=DEVICE,
                             truncation=True, max_length=512)
             print(f"  -> loaded {name}")
@@ -309,7 +333,7 @@ def train_lstms(bundle: dict) -> dict:
     print("\n[Stage 5] Training 4 LSTM configs with class weighting + early stopping ...")
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
     import tensorflow as tf
-    from tensorflow.keras import layers, models, regularizers, callbacks
+    from tensorflow.keras import callbacks, layers, models, regularizers
     tf.get_logger().setLevel("ERROR")
     tf.random.set_seed(RANDOM_STATE)
 
@@ -321,7 +345,7 @@ def train_lstms(bundle: dict) -> dict:
     from sklearn.utils.class_weight import compute_class_weight
     classes = np.unique(train_y)
     weights = compute_class_weight("balanced", classes=classes, y=train_y)
-    class_weight = {int(c): float(w) for c, w in zip(classes, weights)}
+    class_weight = {int(c): float(w) for c, w in zip(classes, weights, strict=False)}
     print(f"  -> class weights: {class_weight}")
 
     def build(config: str) -> tf.keras.Model:
@@ -510,8 +534,8 @@ def run_backtest_and_save(preds: dict, bundle: dict) -> None:
 
 
 def save_summary_svg(results, preds, test_close, test_dates, thresholds):
-    import matplotlib.pyplot as plt
     import matplotlib.font_manager as fm
+    import matplotlib.pyplot as plt
     import seaborn as sns
     try:
         fm.fontManager.addfont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
@@ -549,7 +573,7 @@ def save_summary_svg(results, preds, test_close, test_dates, thresholds):
     bars = ax.bar(names, sharpes, color=colors)
     ax.set_title("Annualized Sharpe Ratio", fontsize=12, fontweight="bold")
     ax.axhline(0, c="k", lw=0.6)
-    for bar, val in zip(bars, sharpes):
+    for bar, val in zip(bars, sharpes, strict=False):
         ax.text(bar.get_x() + bar.get_width()/2, val + (0.05 if val >= 0 else -0.15),
                 f"{val:+.2f}", ha="center", fontsize=10, fontweight="bold")
     ax.tick_params(axis="x", rotation=15)

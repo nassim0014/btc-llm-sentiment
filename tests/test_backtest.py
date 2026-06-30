@@ -4,14 +4,12 @@ Unit tests for the risk-managed backtester and walk-forward CV utilities.
 Run with:  pytest tests/ -v
 """
 import numpy as np
-import pandas as pd
 import pytest
 
-from src.backtest.risk_managed import risk_managed_backtest, compare_strategies
+from src.backtest.risk_managed import compare_strategies, risk_managed_backtest
 from src.cv.walk_forward import (
-    walk_forward_splits,
     evaluate_oof_metrics,
-    WalkForwardFold,
+    walk_forward_splits,
 )
 
 

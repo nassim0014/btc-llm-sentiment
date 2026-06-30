@@ -9,11 +9,9 @@ This script:
 Usage:
     python3 scripts/run_optuna_search.py [--n-trials 15] [--epochs 15]
 """
-import sys
-import os
-import pickle
-import json
 import argparse
+import os
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -34,9 +32,9 @@ def main(n_trials: int = 15, epochs: int = 15) -> None:
     print("Optuna Walk-Forward Hyperparameter Search")
     print("=" * 60)
 
-    # Load features
-    with (INTERIM / "features_for_lstm.pkl").open("rb") as f:
-        bundle = pickle.load(f)
+    # Load features — use safe loader with SHA256 integrity check
+    from src.utils.safe_pickle import safe_load_bundle
+    bundle = safe_load_bundle()
 
     X = np.concatenate([bundle["train_x"], bundle["val_x"], bundle["test_x"]], axis=0)
     y = np.concatenate([bundle["train_y"], bundle["val_y"], bundle["test_y"]], axis=0)
@@ -51,7 +49,7 @@ def main(n_trials: int = 15, epochs: int = 15) -> None:
     from sklearn.utils.class_weight import compute_class_weight
     classes = np.unique(y)
     weights = compute_class_weight("balanced", classes=classes, y=y)
-    class_weight = {int(c): float(w) for c, w in zip(classes, weights)}
+    class_weight = {int(c): float(w) for c, w in zip(classes, weights, strict=False)}
     print(f"Class weights: {class_weight}")
 
     from src.cv.optuna_search import run_optuna_search

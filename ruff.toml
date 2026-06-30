@@ -1,0 +1,15 @@
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E501",  # line length is enforced by formatter
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["B011", "B017", "E402"]  # tests insert sys.path before imports
+"conftest.py" = ["E402"]
+"scripts/*" = ["E402"]  # scripts insert sys.path before src imports
+"pages/*" = ["E402"]   # streamlit pages insert sys.path before src imports
+"notebooks/**" = ["E402", "F401", "F841"]  # notebooks have import-everywhere patterns

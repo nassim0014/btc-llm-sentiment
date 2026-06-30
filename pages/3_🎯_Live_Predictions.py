@@ -13,11 +13,8 @@ feature engineering — but displays "Model Required" instead of the prediction.
 from __future__ import annotations
 
 import ast
-import json
-import pickle
 from io import StringIO
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -27,51 +24,41 @@ import streamlit as st
 
 st.set_page_config(page_title="Live Predictions", page_icon="🎯", layout="wide")
 
+# Use centralized config + safe pickle loader
+import sys
+
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from src.config import NEWS_URL, find_model
+from src.utils.safe_pickle import SafePickleError, safe_load_bundle
+
 OUTPUTS = ROOT / "outputs"
 INTERIM = ROOT / "notebooks" / "interim"
 DATA = ROOT / "Data"
 
-# Model path — checked in multiple locations for resilience
-MODEL_PATHS = [
-    INTERIM / "best_optuna_model.keras",
-    ROOT / "models" / "best_optuna_model.keras",
-    ROOT / "best_optuna_model.keras",
-]
-BUNDLE_PATHS = [
-    INTERIM / "features_for_lstm.pkl",
-    ROOT / "models" / "features_for_lstm.pkl",
-]
+# Backwards-compat aliases used by the rest of this file
+MODEL_PATHS = [INTERIM / "best_optuna_model.keras", ROOT / "models" / "best_optuna_model.keras", ROOT / "best_optuna_model.keras"]
+BUNDLE_PATHS = [INTERIM / "features_for_lstm.pkl", ROOT / "models" / "features_for_lstm.pkl"]
 
 
 # ---------------------------------------------------------------------
 # Data loaders
 # ---------------------------------------------------------------------
-def find_model() -> Optional[Path]:
-    """Search for the trained model in multiple locations."""
-    for p in MODEL_PATHS:
-        if p.exists():
-            return p
-    return None
-
-
-def find_bundle() -> Optional[Path]:
-    """Search for the feature bundle in multiple locations."""
-    for p in BUNDLE_PATHS:
-        if p.exists():
-            return p
-    return None
+# find_model and find_bundle are now imported from src.config
 
 
 @st.cache_data(ttl=300)
-def load_feature_bundle() -> Optional[dict]:
-    """Load the feature bundle (scaler + feature columns + test_close)."""
-    path = find_bundle()
-    if path is None:
-        return None
+def load_feature_bundle() -> dict | None:
+    """Load the feature bundle (scaler + feature columns + test_close).
+
+    Uses the safe pickle loader with SHA256 integrity verification and
+    a restricted unpickler to defend against tampered .pkl files.
+    """
     try:
-        with path.open("rb") as f:
-            return pickle.load(f)
+        return safe_load_bundle()
+    except SafePickleError as e:
+        st.error(f"Refused to load feature bundle (integrity check failed): {e}")
+        return None
     except Exception:
         return None
 
@@ -93,7 +80,7 @@ def load_lstm_model():
 
 
 @st.cache_data(ttl=300)
-def fetch_latest_btc(days: int = 60) -> Optional[pd.DataFrame]:
+def fetch_latest_btc(days: int = 60) -> pd.DataFrame | None:
     """Fetch the latest BTC-USD daily candles via yfinance."""
     try:
         import yfinance as yf
@@ -111,11 +98,14 @@ def fetch_latest_btc(days: int = 60) -> Optional[pd.DataFrame]:
 
 
 @st.cache_data(ttl=600)
-def fetch_latest_news_sentiment() -> Optional[pd.DataFrame]:
+def fetch_latest_news_sentiment() -> pd.DataFrame | None:
     """Fetch the latest crypto news + parse sentiment from cryptonews.csv."""
     try:
-        url = "https://raw.githubusercontent.com/nassim0014/btc-llm-sentiment/main/Data/cryptonews.csv"
-        r = requests.get(url, timeout=60)
+        r = requests.get(
+            NEWS_URL,
+            timeout=60,
+            headers={"User-Agent": "btc-llm-sentiment/1.0 (+https://github.com/nassim0014/btc-llm-sentiment)"},
+        )
         r.raise_for_status()
         news = pd.read_csv(StringIO(r.text))
         news["date"] = pd.to_datetime(news["date"], format="mixed", utc=True, errors="coerce")
@@ -143,7 +133,7 @@ def fetch_latest_news_sentiment() -> Optional[pd.DataFrame]:
 # ---------------------------------------------------------------------
 # Feature engineering (same as the pipeline)
 # ---------------------------------------------------------------------
-def engineer_features(btc: pd.DataFrame, news: pd.DataFrame) -> Optional[pd.DataFrame]:
+def engineer_features(btc: pd.DataFrame, news: pd.DataFrame) -> pd.DataFrame | None:
     """Engineer the 23 features used by the LSTM model."""
     try:
         # Aggregate news to daily
@@ -245,7 +235,7 @@ if not model_available:
     - Run the Phase 2 Optuna pipeline locally to generate the model
     - The model file (`best_optuna_model.keras`) is 122KB and should be committed to the repo
     - Place it at: `notebooks/interim/best_optuna_model.keras`
-    
+
     **Below:** Live BTC price, news sentiment, and feature engineering are still available —
     only the final LSTM prediction requires the model.
     """)

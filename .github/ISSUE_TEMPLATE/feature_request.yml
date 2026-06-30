@@ -1,0 +1,43 @@
+---
+name: ✨ Feature Request
+description: Suggest a new feature or improvement
+title: "[feat] "
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Data pipeline
+        - ML model (LSTM)
+        - Backtester / risk engine
+        - Interpretability (SHAP)
+        - Dashboard (Streamlit)
+        - DevOps / CI / Docker
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

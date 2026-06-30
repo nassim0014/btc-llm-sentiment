@@ -27,8 +27,8 @@ Example
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Optional
 
 import numpy as np
 import pandas as pd
@@ -147,7 +147,13 @@ def evaluate_oof_metrics(
     dict with keys: accuracy, f1, precision, recall, auc, sharpe, sortino,
     max_dd, win_rate, n_trades
     """
-    from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
+    from sklearn.metrics import (
+        accuracy_score,
+        f1_score,
+        precision_score,
+        recall_score,
+        roc_auc_score,
+    )
 
     y_pred = (y_prob >= threshold).astype(int)
 
@@ -254,7 +260,7 @@ def run_walk_forward(
     val_size: int = 60,
     threshold: float = 0.5,
     fee: float = 0.001,
-    fit_kwargs: Optional[dict] = None,
+    fit_kwargs: dict | None = None,
     verbose: bool = True,
 ) -> WalkForwardResult:
     """Run walk-forward CV across `n_folds` folds.
