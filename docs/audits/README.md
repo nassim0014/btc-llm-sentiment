@@ -16,6 +16,6 @@ contributors can see exactly what was assessed and what was changed.
 
 ## Generating future reports
 
-If you re-run an audit (e.g. after a major refactor), generate a new PDF and
+(Note to self) If i re-run an audit (e.g. after a major refactor), generate a new PDF and
 add it to this directory. Name it `YYYY-MM-DD-audit.pdf` to keep the chronology
 clear.
