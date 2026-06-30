@@ -29,7 +29,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from src.config import NEWS_URL, find_model
+from src.config import NEWS_URL, find_bundle, find_model
 from src.utils.safe_pickle import SafePickleError, safe_load_bundle
 
 OUTPUTS = ROOT / "outputs"
@@ -65,36 +65,50 @@ def load_feature_bundle() -> dict | None:
 
 @st.cache_resource
 def load_lstm_model():
-    """Load the saved Optuna-tuned LSTM model."""
+    """Load the saved Optuna-tuned LSTM model.
+
+    Returns (model, error_message). On success, error_message is None.
+    On failure, model is None and error_message explains what went wrong
+    so the UI can show it instead of a generic 'not found' message.
+    """
     path = find_model()
     if path is None:
-        return None
+        return None, "Model file not found in any expected location. Searched: " + ", ".join(str(p) for p in MODEL_PATHS)
     try:
         import os
         os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
         import tensorflow as tf
         tf.get_logger().setLevel("ERROR")
-        return tf.keras.models.load_model(str(path))
-    except Exception:
-        return None
+        model = tf.keras.models.load_model(str(path))
+        return model, None
+    except ImportError as e:
+        return None, f"TensorFlow could not be imported: {e}. Check that `tensorflow-cpu` is in requirements.txt and installed on Streamlit Cloud."
+    except Exception as e:
+        return None, f"TensorFlow failed to load the model: {type(e).__name__}: {e}"
 
 
 @st.cache_data(ttl=300)
-def fetch_latest_btc(days: int = 60) -> pd.DataFrame | None:
-    """Fetch the latest BTC-USD daily candles via yfinance."""
+def fetch_latest_btc(days: int = 60) -> tuple[pd.DataFrame | None, str | None]:
+    """Fetch the latest BTC-USD daily candles via yfinance.
+
+    Returns (df, error_message). On success, error_message is None.
+    On failure, df is None and error_message explains what went wrong.
+    """
     try:
         import yfinance as yf
         btc = yf.download("BTC-USD", period=f"{days}d", auto_adjust=False, progress=False)
         if btc is None or len(btc) == 0:
-            return None
+            return None, "yfinance returned empty data — Yahoo Finance may be rate-limiting or down."
         if isinstance(btc.columns, pd.MultiIndex):
             btc.columns = [" ".join(c).strip() for c in btc.columns]
         btc = btc.reset_index().rename(columns={"Date": "date"})
         btc.columns = [c.replace(" BTC-USD", "").lower() for c in btc.columns]
         btc["date"] = pd.to_datetime(btc["date"]).dt.floor("D")
-        return btc
-    except Exception:
-        return None
+        return btc, None
+    except ImportError:
+        return None, "yfinance is not installed. Add `yfinance` to requirements.txt."
+    except Exception as e:
+        return None, f"yfinance error: {type(e).__name__}: {e}"
 
 
 @st.cache_data(ttl=600)
@@ -224,20 +238,33 @@ st.markdown("---")
 # ---------------------------------------------------------------------
 # Check model availability (non-fatal — continue even if missing)
 # ---------------------------------------------------------------------
-model = load_lstm_model()
+model, model_error = load_lstm_model()
 bundle = load_feature_bundle()
 model_available = model is not None and bundle is not None
 
 if not model_available:
-    st.warning("⚠️ Trained LSTM model not found in this deployment.")
+    # Show the ACTUAL error instead of a generic "not found" message.
+    # The most common causes are:
+    #   1. TensorFlow not installed on Streamlit Cloud (requirements.txt issue)
+    #   2. TensorFlow version mismatch (model saved with 2.17, runtime has older)
+    #   3. Model file genuinely missing (shouldn't happen — it's committed)
+    st.warning("⚠️ Trained LSTM model could not be loaded in this deployment.")
+    if model is None and model_error:
+        st.error(f"**Model load error:** `{model_error}`")
+    if bundle is None:
+        st.error("**Feature bundle error:** Could not load `features_for_lstm.pkl`. See logs above for SHA256 or unpickler errors.")
     st.info("""
     **To enable live predictions:**
-    - Run the Phase 2 Optuna pipeline locally to generate the model
-    - The model file (`best_optuna_model.keras`) is 122KB and should be committed to the repo
-    - Place it at: `notebooks/interim/best_optuna_model.keras`
+    - If the error above says TensorFlow could not be imported, check that
+      `tensorflow-cpu` is listed in `requirements.txt` (it is, but Streamlit
+      Cloud may have failed to install it — check the app logs).
+    - If the error says the model file is not found, run the Phase 2 Optuna
+      pipeline locally and commit the file to `notebooks/interim/`.
+    - If the error is a TensorFlow version mismatch, retrain the model with
+      the same TF version that Streamlit Cloud uses.
 
-    **Below:** Live BTC price, news sentiment, and feature engineering are still available —
-    only the final LSTM prediction requires the model.
+    **Below:** Live BTC price, news sentiment, and feature engineering are
+    still available — only the final LSTM prediction requires the model.
     """)
     st.markdown("---")
 
@@ -251,11 +278,13 @@ col1, col2 = st.columns(2)
 
 with col1:
     with st.spinner("Fetching latest BTC-USD prices..."):
-        btc = fetch_latest_btc(days=60)
+        btc, btc_error = fetch_latest_btc(days=60)
     if btc is not None:
         st.success(f"✅ Fetched {len(btc)} days of BTC-USD data (latest: {btc['date'].iloc[-1].date()})")
     else:
         st.error("⚠️ Could not fetch BTC price data.")
+        if btc_error:
+            st.caption(f"**Error:** `{btc_error}`")
 
 with col2:
     with st.spinner("Fetching latest crypto news..."):
@@ -437,5 +466,47 @@ latest_news.columns = ["Date", "Headline", "Sentiment"]
 st.dataframe(latest_news, use_container_width=True, hide_index=True)
 
 st.markdown("---")
-status = "with LSTM prediction" if model_available else "without LSTM prediction (model not found)"
+status = "with LSTM prediction" if model_available else "without LSTM prediction (model not loaded)"
 st.caption(f"🎯 Live Predictions — Uses the Optuna-tuned LSTM model with the same 23 features (technical + sentiment) as training. Running {status}.")
+
+# ---------------------------------------------------------------------
+# Diagnostics — show installed package versions + file paths for debugging
+# ---------------------------------------------------------------------
+with st.expander("🔧 Diagnostics (click to expand)", expanded=False):
+    st.markdown("**Installed package versions:**")
+    import importlib
+
+    pkgs = ["tensorflow", "yfinance", "numpy", "pandas", "scikit_learn", "streamlit", "plotly"]
+    version_rows = []
+    for pkg in pkgs:
+        try:
+            mod = importlib.import_module(pkg.replace("-", "_"))
+            ver = getattr(mod, "__version__", "unknown")
+            version_rows.append({"Package": pkg, "Version": ver, "Status": "✅ installed"})
+        except ImportError:
+            version_rows.append({"Package": pkg, "Version": "—", "Status": "❌ NOT installed"})
+    st.dataframe(version_rows, use_container_width=True, hide_index=True)
+
+    st.markdown("**Model artifact paths:**")
+    model_path = find_model()
+    bundle_path = find_bundle()
+    path_rows = [
+        {"Artifact": "LSTM model (.keras)", "Expected path": str(MODEL_PATHS[0]), "Found": "✅" if model_path else "❌", "Resolved": str(model_path) if model_path else "—"},
+        {"Artifact": "Feature bundle (.pkl)", "Expected path": str(BUNDLE_PATHS[0]), "Found": "✅" if bundle_path else "❌", "Resolved": str(bundle_path) if bundle_path else "—"},
+    ]
+    st.dataframe(path_rows, use_container_width=True, hide_index=True)
+
+    if model_path:
+        st.caption(f"Model file size: {model_path.stat().st_size / 1024:.1f} KB")
+    if bundle_path:
+        st.caption(f"Bundle file size: {bundle_path.stat().st_size / 1024:.1f} KB")
+
+    st.markdown("**Errors captured this session:**")
+    if model_error:
+        st.code(f"Model: {model_error}", language="text")
+    else:
+        st.caption("Model: no error (loaded successfully or not attempted)")
+    if btc_error:
+        st.code(f"BTC fetch: {btc_error}", language="text")
+    else:
+        st.caption("BTC fetch: no error")
