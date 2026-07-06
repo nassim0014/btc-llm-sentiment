@@ -16,7 +16,7 @@ requests==2.32.3
 # ---- NLP / Sentiment ----
 transformers==4.44.2
 torch==2.4.1
-tqdm==4.66.5
+tqdm==4.68.3
 
 # ---- ML / Deep Learning ----
 # tensorflow-cpu is used instead of tensorflow to avoid GPU driver issues
