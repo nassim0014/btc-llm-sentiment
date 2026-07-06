@@ -52,7 +52,7 @@ nbconvert==7.17.1
 # ---- Dev / test / lint (not needed at runtime) ----
 # These are installed by `make setup` but are not imported by the app.
 # Listed here so pip-audit covers them too.
-pytest==8.3.3
+pytest==9.1.1
 pytest-cov==5.0.0
 ruff==0.15.20
 pip-audit==2.7.3
