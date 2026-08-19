@@ -305,6 +305,9 @@ def log_alert(alert: dict, channels_sent: list[str]) -> None:
     ]
 
     file_exists = ALERT_LOG_PATH.exists()
+    # Ensure the audit directory exists before writing — without this, the
+    # first run on a fresh clone crashes with FileNotFoundError.
+    ALERT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with ALERT_LOG_PATH.open("a", newline="") as f:
         writer = csv.writer(f)
         if not file_exists:
