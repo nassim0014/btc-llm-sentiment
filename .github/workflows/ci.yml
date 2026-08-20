@@ -69,6 +69,44 @@ jobs:
           retention-days: 7
 
   # ─────────────────────────────────────────────
+  # 2. ML smoke test — install CPU-only ML deps + import-check
+  #
+  # Decision #4: install tensorflow-cpu + torch (CPU) so the ML-heavy
+  # modules (src/cv/optuna_search.py, src/inference/finbert.py,
+  # src/interpretability/shap_explainer.py, src/models/lstm.py) can at
+  # least be imported in CI. Catches API mismatches that the lightweight
+  # test job can't see. Adds ~3-5 min to CI run time.
+  # ─────────────────────────────────────────────
+  ml-smoke:
+    name: ML import smoke (CPU)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install CPU-only ML dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Core test deps
+          pip install numpy pandas scikit-learn pytest
+          # CPU-only ML deps (decision #4) — no GPU drivers, ~400MB total
+          pip install tensorflow-cpu torch --index-url https://download.pytorch.org/whl/cpu
+          # transformers + shap pulled from requirements.txt
+          pip install transformers shap
+
+      - name: Import-check all ML modules
+        run: |
+          python -c "import src.cv.optuna_search; print('✅ optuna_search imports')"
+          python -c "import src.inference.finbert; print('✅ finbert imports')"
+          python -c "import src.interpretability.shap_explainer; print('✅ shap_explainer imports')"
+          python -c "import src.models.lstm; print('✅ lstm imports')"
+
+  # ─────────────────────────────────────────────
   # 2. Security scans
   # ─────────────────────────────────────────────
   security:
