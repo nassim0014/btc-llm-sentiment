@@ -94,9 +94,14 @@ jobs:
           python -m pip install --upgrade pip
           # Core test deps
           pip install numpy pandas scikit-learn pytest
-          # CPU-only ML deps (decision #4) — no GPU drivers, ~400MB total
-          pip install tensorflow-cpu torch --index-url https://download.pytorch.org/whl/cpu
-          # transformers + shap pulled from requirements.txt
+          # CPU-only ML deps (decision #4).
+          # tensorflow-cpu was deprecated; the regular `tensorflow` package
+          # includes CPU support by default (no GPU drivers unless CUDA is
+          # present, which it isn't on ubuntu-latest). ~500MB.
+          pip install tensorflow
+          # torch CPU-only wheel (no CUDA) from the PyTorch CPU index
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # transformers + shap for the NLP + interpretability modules
           pip install transformers shap
 
       - name: Import-check all ML modules
