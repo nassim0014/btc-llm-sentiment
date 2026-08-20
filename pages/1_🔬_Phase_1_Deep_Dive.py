@@ -15,6 +15,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from src.phase1_display import (
+    METRIC_OPTIONS,
+    format_display_columns,
+    format_metric_label,
+    has_data,
+)
+
 st.set_page_config(page_title="Phase 1 Deep-Dive", page_icon="🔬", layout="wide")
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -88,28 +95,11 @@ else:
 st.markdown("---")
 st.subheader("📊 Trading Metrics Comparison")
 
-if trading_metrics is not None and len(trading_metrics) > 0:
-    metric_options = [
-        "total_return_pct",
-        "annualized_sharpe",
-        "annualized_sortino",
-        "max_drawdown_pct",
-        "win_rate_pct",
-        "n_trades",
-    ]
-    metric_labels = {
-        "total_return_pct": "Total Return (%)",
-        "annualized_sharpe": "Annualized Sharpe",
-        "annualized_sortino": "Annualized Sortino",
-        "max_drawdown_pct": "Max Drawdown (%)",
-        "win_rate_pct": "Win Rate (%)",
-        "n_trades": "Number of Trades",
-    }
-
+if has_data(trading_metrics):
     selected_metric = st.selectbox(
         "Select metric to visualize:",
-        options=metric_options,
-        format_func=lambda x: metric_labels[x],
+        options=METRIC_OPTIONS,
+        format_func=format_metric_label,
     )
 
     fig = px.bar(
@@ -117,13 +107,13 @@ if trading_metrics is not None and len(trading_metrics) > 0:
         x="strategy",
         y=selected_metric,
         color="strategy",
-        title=f"{metric_labels[selected_metric]} by Strategy",
+        title=f"{format_metric_label(selected_metric)} by Strategy",
         template="plotly_dark",
         text_auto=".2f",
     )
     fig.update_layout(
         xaxis_title="Strategy",
-        yaxis_title=metric_labels[selected_metric],
+        yaxis_title=format_metric_label(selected_metric),
         showlegend=False,
         height=450,
     )
@@ -131,9 +121,7 @@ if trading_metrics is not None and len(trading_metrics) > 0:
 
     # Also show the full table
     st.markdown("#### Full Trading Metrics Table")
-    display_df = trading_metrics.copy()
-    display_df.columns = [c.replace("_", " ").title() for c in display_df.columns]
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    st.dataframe(format_display_columns(trading_metrics), use_container_width=True, hide_index=True)
 else:
     st.warning("Trading metrics data not available.")
 
