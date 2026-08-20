@@ -90,23 +90,14 @@ CI install.
 
 ## Next
 
-### 4. ML-heavy modules at 0% coverage — needs an owner decision
-`src/cv/optuna_search.py` (0%), `src/inference/finbert.py` (0%),
-`src/interpretability/shap_explainer.py` (0%), `src/models/lstm.py` (0%)
-have no tests. The CI install deliberately skips
-`tensorflow`/`torch`/`transformers` (see `.github/workflows/ci.yml`:
-"Install only what the unit tests need (skip heavy ML deps)") so even
-importing these modules would crash in CI.
-
-This is a real coverage gap, but closing it needs an owner decision:
-- **Option A**: install `tensorflow-cpu` and `torch` (CPU-only) in CI.
-  Adds ~3-5 min to CI run time. Enables at least import + smoke tests.
-- **Option B**: mock the ML deps in tests (replace `tensorflow` with a
-  stub module). Faster CI but tests don't catch real API mismatches.
-- **Option C**: accept that ML code is untestable in CI and rely on
-  the notebooks (which run end-to-end on Colab) for verification.
-
-Each is a legitimate tradeoff. Don't pick unilaterally.
+### 4. ~~ML-heavy modules at 0% coverage — needs an owner decision~~ ✅
+**Decision #4: CPU install.** Added a new `ml-smoke` CI job that installs
+`tensorflow-cpu` + `torch` (CPU-only, from the PyTorch CPU wheel index)
++ `transformers` + `shap`, then import-checks all four ML modules
+(`src/cv/optuna_search.py`, `src/inference/finbert.py`,
+`src/interpretability/shap_explainer.py`, `src/models/lstm.py`). Adds
+~3-5 min to CI run time. Catches API mismatches that the lightweight
+test job (which deliberately skips ML deps) can't see.
 
 ### 5. `pages/` Streamlit pages — 1,464 lines of UI with zero tests
 Four Streamlit page files (`1_🔬_Phase_1_Deep_Dive.py` through
