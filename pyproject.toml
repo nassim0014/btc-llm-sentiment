@@ -1,13 +1,26 @@
+# pyproject.toml — consolidated project configuration.
+#
+# Migrated from pytest.ini and ruff.toml so there is one config file
+# (backlog item 6). Both pytest and ruff natively read pyproject.toml.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
 line-length = 100
 target-version = "py311"
 
-[lint]
+[tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 ignore = [
     "E501",  # line length is enforced by formatter
 ]
 
-[lint.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B011", "B017", "E402"]  # tests insert sys.path before imports
 "conftest.py" = ["E402"]
 "scripts/*" = ["E402"]  # scripts insert sys.path before src imports

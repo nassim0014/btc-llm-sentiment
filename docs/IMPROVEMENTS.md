@@ -123,15 +123,11 @@ Larger than one PR — split-first pass: take one page (probably
 `4_🎛️_Backtest_Simulator.py` — largest, most logic-heavy), extract its
 computation, leave the rest ranked.
 
-### 6. `pytest.ini` vs `pyproject.toml`
-`pytest.ini` is at the repo root; `ruff.toml` is also at the root.
-Modern Python projects consolidate these into `pyproject.toml` so there
-is one config file. Mechanical move, no behaviour change — but verify
-that `ruff` and `pytest` both still find their config after the move
-(they should, both tools support `pyproject.toml` natively).
-
-Low priority — only do this if touching `pyproject.toml` for another
-reason anyway.
+### 6. ~~`pytest.ini` vs `pyproject.toml`~~ ✅
+Consolidated `pytest.ini` + `ruff.toml` into `pyproject.toml` (single
+config file). Both tools natively read `pyproject.toml`. Verified:
+31 tests pass (1 skip), ruff finds the config (113 pre-existing
+notebook errors unchanged — not from this migration).
 
 ---
 
