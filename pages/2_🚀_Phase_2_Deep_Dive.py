@@ -193,19 +193,19 @@ st.markdown("---")
 st.subheader("⚙️ Optuna Hyperparameter Search Results")
 
 if best_params is not None:
+    from src.phase2_display import compute_optuna_stats
+
+    stats = compute_optuna_stats(best_params)
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("Best OOF Sharpe", f"{best_params.get('best_oof_sharpe', 0):.4f}")
+        st.metric("Best OOF Sharpe", f"{stats['best_oof_sharpe']:.4f}")
 
     with col2:
-        total = best_params.get("n_complete", 0) + best_params.get("n_pruned", 0)
-        st.metric("Total Trials", total)
+        st.metric("Total Trials", stats["total_trials"])
 
     with col3:
-        pruned = best_params.get("n_pruned", 0)
-        pruned_pct = (pruned / total * 100) if total > 0 else 0
-        st.metric("Pruned Trials", f"{pruned} ({pruned_pct:.0f}%)")
+        st.metric("Pruned Trials", f"{stats['pruned_trials']} ({stats['pruned_pct']:.0f}%)")
 
     st.markdown("#### Best Hyperparameters")
     bp = best_params.get("best_params", {})
@@ -233,9 +233,11 @@ st.markdown("---")
 st.subheader("🔍 SHAP Feature Importance")
 
 if shap_importance is not None and len(shap_importance) > 0:
+    from src.phase2_display import sort_shap_by_importance, top_n_features
+
     # Bar chart
     fig = px.bar(
-        shap_importance.sort_values("mean_abs_shap", ascending=True),
+        sort_shap_by_importance(shap_importance, ascending=True),
         x="mean_abs_shap",
         y="feature",
         orientation="h",
@@ -254,7 +256,7 @@ if shap_importance is not None and len(shap_importance) > 0:
 
     st.markdown("#### Top 10 Features by Mean |SHAP|")
     st.dataframe(
-        shap_importance.head(10).style.format({"mean_abs_shap": "{:.6f}"}),
+        top_n_features(shap_importance, n=10).style.format({"mean_abs_shap": "{:.6f}"}),
         use_container_width=True,
         hide_index=True,
     )
