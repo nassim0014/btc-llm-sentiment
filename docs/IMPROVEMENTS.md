@@ -99,20 +99,22 @@ CI install.
 ~3-5 min to CI run time. Catches API mismatches that the lightweight
 test job (which deliberately skips ML deps) can't see.
 
-### 5. `pages/` Streamlit pages — 1,464 lines of UI with zero tests (in progress)
+### 5. ~~`pages/` Streamlit pages — 1,464 lines of UI with zero tests~~ ✅
 Four Streamlit page files (`1_🔬_Phase_1_Deep_Dive.py` through
-`4_🎛️_Backtest_Simulator.py`) total 1,464 lines and have no tests.
+`4_🎛️_Backtest_Simulator.py`) total 1,464 lines and had no tests.
 
-**First pass (this PR):** extracted `run_backtest` from
-`4_🎛️_Backtest_Simulator.py` (the largest, most logic-heavy page) into
-`src/backtest/simulator.py`. 15 new tests in `tests/test_simulator.py`
-cover: result keys, equity normalization, no-trade-when-below-threshold,
-position sizing, metrics (sharpe/max_dd/win_rate/n_trades), vol-targeting
-toggle, circuit-breaker trigger + disable, edge cases (single day, two
-days, fee impact). Page reduced from 568 → 454 lines.
+**All four pages extracted across 4 PRs:**
+- **PR #28**: `4_🎛️_Backtest_Simulator.py` → `src/backtest/simulator.py`
+  (15 tests: backtest math, vol-targeting, circuit breaker, edge cases)
+- **PR #29**: `1_🔬_Phase_1_Deep_Dive.py` → `src/phase1_display.py`
+  (12 tests: metric config, label formatting, column display, has_data)
+- **PR #30**: `2_🚀_Phase_2_Deep_Dive.py` → `src/phase2_display.py`
+  (15 tests: Optuna stats, SHAP sorting, top-N features, has_data)
+- **PR #31** (this PR): `3_🎯_Live_Predictions.py` → `src/live_features.py`
+  (8 tests: feature engineering, RSI bounds, no-mutation, exception→None)
 
-Remaining pages (1, 2, 3) still need the same treatment — each is a
-separate PR.
+Total: 50 new tests across 4 extracted modules. Page files now contain
+only `st.*` UI glue + inline imports of the extracted functions.
 
 ### 6. ~~`pytest.ini` vs `pyproject.toml`~~ ✅
 Consolidated `pytest.ini` + `ruff.toml` into `pyproject.toml` (single
