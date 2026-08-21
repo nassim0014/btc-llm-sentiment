@@ -157,6 +157,15 @@ def evaluate_oof_metrics(
 
     y_pred = (y_prob >= threshold).astype(int)
 
+    # Early return on empty input — sklearn raises ValueError on empty
+    # arrays, and the graceful-degradation path below never reaches.
+    if len(y_true) == 0:
+        return {
+            "accuracy": 0.0, "f1": 0.0, "precision": 0.0, "recall": 0.0,
+            "auc": float("nan"), "sharpe": 0.0, "sortino": 0.0,
+            "max_dd": 0.0, "win_rate": 0.0, "n_trades": 0,
+        }
+
     metrics: dict = {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "f1": float(f1_score(y_true, y_pred, zero_division=0)),
