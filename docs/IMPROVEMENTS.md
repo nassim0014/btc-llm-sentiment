@@ -21,72 +21,44 @@ this PR (creating it) is itself item 0.
 
 ## Now
 
-### 1. Duplicate entries in `requirements.txt`
-`ipykernel` and `nbconvert` are each listed twice with conflicting versions:
+### 7. `ruff check` fails on `main` right now — unused `pytest` import
+`tests/test_phase1_display.py:5` imports `pytest` but never uses it
+(`F401`). Confirmed via `git stash` against a clean `main` checkout —
+this is not caused by any pending change, it's already broken.
+One-line, `ruff --fix`-able. Small enough that whoever takes the next
+item here should just delete the import as a 30-second prelude rather
+than dedicating a full cycle to it — but flagging it explicitly since
+"lint is currently red on main" is exactly the kind of thing a backlog
+should never let sit silently.
 
+### 8. `evaluate_oof_metrics` crashes when predictions are shorter than the close-price window
+Separate from the empty-input bug fixed this cycle (see *Done*): when
+`len(y_prob) < len(rets)` — i.e. `close` has more points than
+`len(y_prob) + 1` — `signal * rets` at
+`src/cv/walk_forward.py:179` raises
+`ValueError: operands could not be broadcast together with shapes
+(N,) (M,)`. The existing truncation (`if len(signal) > len(rets):
+signal = signal[:len(rets)]`) only handles the signal-longer case; there
+is no symmetric truncation of `rets` (or padding of `signal`) for the
+signal-shorter case.
+
+Reproduce:
+```python
+evaluate_oof_metrics(
+    y_true=np.array([1, 0, 1]), y_prob=np.array([0.9, 0.1, 0.8]),
+    close=np.linspace(100, 110, 10),  # rets has 9 elements, signal has 3
+)
+# ValueError: operands could not be broadcast together with shapes (3,) (9,)
 ```
-ipykernel==7.3.0       # line 47
-nbconvert==7.16.4      # line 48
-ipykernel==6.29.5      # line 49  ← overrides 7.3.0
-nbconvert==7.17.1      # line 50  ← overrides 7.16.4
-```
-
-`pip install -r` silently picks the last occurrence, so `ipykernel==7.3.0`
-and `nbconvert==7.16.4` are dead lines that look like the pinned version
-but never get installed. `pip-audit` (which the README claims to run)
-won't catch this — it audits the resolved environment, not the file.
-
-Two questions for whoever takes this item:
-- Which version is correct? `6.29.5` for ipykernel is the older,
-  widely-tested line; `7.3.0` is newer but ipykernel 7.x is a recent
-  release. Same shape for nbconvert.
-- Are both lines even needed? The duplicate looks like a copy-paste
-  accident during the Phase 2 notebook work, not a deliberate pin.
-
-Mechanical fix once the version question is answered: delete the wrong
-line, leave the right one, no other changes.
-
-### 2. `audit/` directory is never created — `sentiment_alert.py` crashes on first run
-`src/config.py` declares `AUDIT_DIR = ROOT / "audit"` and
-`ALERT_LOG_PATH = AUDIT_DIR / "sentiment_alerts.csv"`.
-`scripts/sentiment_alert.py` writes to that path at line ~307
-(`ALERT_LOG_PATH.exists()` check + csv writer). Nothing in the repo ever
-calls `AUDIT_DIR.mkdir(...)`.
-
-Reproduce: `python scripts/sentiment_alert.py` on a fresh clone →
-`FileNotFoundError: [Errno 2] No such file or directory: '.../audit/
-sentiment_alerts.csv'`.
-
-Fix options (ranked):
-- (a) Add `AUDIT_DIR.mkdir(parents=True, exist_ok=True)` at the top of
-  `scripts/sentiment_alert.py` before the first write. Smallest diff,
-  clearest intent. The script is the only consumer of `ALERT_LOG_PATH`
-  today, so the directory-creation belongs there.
-- (b) Make `AUDIT_DIR` a `pathlib.Path` property that creates itself on
-  first access. Cleaner but over-engineered for one consumer.
-- (c) Add `audit/` to the repo with a `.gitkeep`. Wrong — the path is
-  `ROOT/"audit"`, not `ROOT/data/audit`, and committing an empty dir
-  doesn't fix the bug if someone deletes it.
-
-Take (a). Add a test that runs `sentiment_alert.py`'s write path against
-a tmp path and asserts the file exists after — that test would have
-caught this.
-
-### 3. `src/cv/walk_forward.py` coverage gap — lines 292-333
-`evaluate_oof_metrics` is the only function in the file with a coverage
-gap of consequence (file is 66% overall; the rest is at 100% or
-intentionally-untested error branches). The existing
-`test_evaluate_oof_metrics` covers the perfect-predictions and
-random-around-half cases, but the function has branches for:
-- empty input arrays
-- single-element input
-- mismatched lengths between predictions and actuals
-- division-by-zero (when std is 0)
-
-All four are silent error paths today. Add one test per branch. This is
-the same shape as kinz-competitor-intelligence's coverage-gap work
-(PR #39 there) — pure-Python logic, no ML deps, runs in the lightweight
-CI install.
+Whether this can happen from `run_walk_forward`'s own fold slicing is
+unverified — `X_va`/`close_va` are sliced from the same `val_idx` so
+they should stay aligned in the normal pipeline — but the function is
+also called directly from `optuna_search.py` and is public API, so a
+caller passing mismatched arrays currently gets an opaque numpy error
+instead of a clear one. Fix should mirror the existing truncation
+direction (truncate `rets` to `len(signal)` too) plus a test that
+reproduces this exact shape mismatch first, per the loop's own
+verification rule.
 
 ## Next
 
@@ -126,6 +98,36 @@ notebook errors unchanged — not from this migration).
 
 ## Done
 
+- **PR #23** — Removed the duplicate `ipykernel`/`nbconvert` pins in
+  `requirements.txt` (item 1). Merged 2026-08-19.
+- **PR #24** — Added `AUDIT_DIR.mkdir(parents=True, exist_ok=True)`
+  before `sentiment_alert.py`'s first write (item 2, option (a) as
+  recommended). Merged, predates this entry — opened as an "open-loop
+  experiment" rather than through this backlog, which is why it wasn't
+  ticked off here until now. Bookkeeping fix, not new work.
+- **Item 3, closed-loop cycle 2026-08-21** — The four branches item 3
+  asked for (empty input, single-element, mismatched lengths, zero-std)
+  *already had tests* in `tests/test_backtest.py::TestEvaluateOofMetrics`
+  by the time this cycle picked it up — same story as items 1 and 2,
+  written by an earlier pass but never ticked off here. Investigating
+  why anyway turned up a real, separate bug the existing tests were
+  masking: `test_empty_input_returns_zero_metrics` was **self-skipping**
+  via `pytest.skip()` whenever sklearn raised on empty input — which it
+  does, every time, on the installed sklearn (1.9.0). So the "empty
+  input" branch had a test in name only; production `evaluate_oof_metrics`
+  actually crashed with `ValueError: Found empty input array...` on
+  `y_true=[]`, never reaching its own `n_days == 0` graceful-degradation
+  path. Fixed by returning the zeroed-metrics dict immediately when
+  `len(y_true) == 0`, before any sklearn call. Verified by reverting the
+  fix and confirming the (now non-skipping) test fails with that exact
+  `ValueError`, then restoring it and confirming all 82 tests pass.
+  `walk_forward.py` coverage moved 68% → 69%; the remaining gap is
+  mostly `run_walk_forward`'s Keras-training loop (needs the ML-heavy
+  install) plus two dataclass `__repr__`/`summary` methods — neither is
+  the "silent error path" item 3 was actually chasing, so not picked up
+  here. One new bug found in the same function while verifying this fix
+  is filed separately as item 8 (different failure mode, different fix
+  location, out of scope for this PR).
 - **PR #1 (this PR)** — Created `docs/IMPROVEMENTS.md` as the first
   cycle's deliverable. Read the codebase end-to-end: 27 tests pass,
   `ruff check` clean, 37% coverage overall. Five concrete items

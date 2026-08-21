@@ -157,6 +157,25 @@ def evaluate_oof_metrics(
 
     y_pred = (y_prob >= threshold).astype(int)
 
+    if len(y_true) == 0:
+        # sklearn's classification metrics raise ValueError on empty input
+        # (e.g. accuracy_score requires >=1 sample) rather than returning a
+        # degenerate value, so this has to be handled before we ever call
+        # them. Same zeroed-metrics contract as the n_days == 0 backtest
+        # path below, for a consistent "empty in, zero out" behaviour.
+        return {
+            "accuracy": 0.0,
+            "f1": 0.0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "auc": float("nan"),
+            "sharpe": 0.0,
+            "sortino": 0.0,
+            "max_dd": 0.0,
+            "win_rate": 0.0,
+            "n_trades": 0,
+        }
+
     metrics: dict = {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "f1": float(f1_score(y_true, y_pred, zero_division=0)),

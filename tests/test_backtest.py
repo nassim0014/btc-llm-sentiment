@@ -205,30 +205,31 @@ class TestEvaluateOofMetrics:
         assert np.isnan(metrics["auc"])
 
     def test_empty_input_returns_zero_metrics(self):
-        """Empty arrays should return zeroed trading metrics, not crash.
+        """Empty arrays should return zeroed metrics, not crash.
 
-        Newer scikit-learn (>=1.6) raises ValueError on empty y_true/y_pred
-        inside accuracy_score, while older versions return nan. Either way,
-        the function should not raise — it should catch the error and return
-        a metrics dict with zeroed trading values.
+        scikit-learn's accuracy_score/f1_score/etc. raise ValueError on
+        empty input ("a minimum of 1 sample is required") — confirmed
+        against the installed sklearn (1.9.0) here, and true since at
+        least 1.6. evaluate_oof_metrics must guard against this itself
+        before ever calling into sklearn, since the caller (run_walk_forward)
+        cannot always guarantee a non-empty validation fold.
         """
         y_true = np.array([], dtype=int)
         y_prob = np.array([])
         close = np.array([100.0])
-        # Some sklearn versions raise on empty input; the function should
-        # handle it gracefully. We only assert it returns a dict with
-        # the expected keys — the actual accuracy value may be nan or
-        # raise (caught internally).
-        try:
-            metrics = evaluate_oof_metrics(y_true, y_prob, close)
-        except ValueError:
-            # If sklearn raises and the function doesn't catch it, that's
-            # a known edge case — skip rather than fail. The function's
-            # contract is "don't crash on valid input", and empty arrays
-            # are degenerate but technically valid.
-            pytest.skip("scikit-learn raises ValueError on empty arrays — known edge case")
-        assert "n_trades" in metrics
-        assert metrics["n_trades"] == 0
+        metrics = evaluate_oof_metrics(y_true, y_prob, close)
+        assert metrics == {
+            "accuracy": 0.0,
+            "f1": 0.0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "auc": pytest.approx(float("nan"), nan_ok=True),
+            "sharpe": 0.0,
+            "sortino": 0.0,
+            "max_dd": 0.0,
+            "win_rate": 0.0,
+            "n_trades": 0,
+        }
 
     def test_single_element_input_does_not_crash(self):
         """Single-element input should not raise — degenerate but valid."""
