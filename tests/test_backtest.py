@@ -207,28 +207,21 @@ class TestEvaluateOofMetrics:
     def test_empty_input_returns_zero_metrics(self):
         """Empty arrays should return zeroed trading metrics, not crash.
 
-        Newer scikit-learn (>=1.6) raises ValueError on empty y_true/y_pred
-        inside accuracy_score, while older versions return nan. Either way,
-        the function should not raise — it should catch the error and return
-        a metrics dict with zeroed trading values.
+        scikit-learn >= 1.6 raises ValueError on empty y_true/y_pred
+        inside accuracy_score. The function catches this with an early
+        return that produces a zeroed-metrics dict.
         """
         y_true = np.array([], dtype=int)
         y_prob = np.array([])
         close = np.array([100.0])
-        # Some sklearn versions raise on empty input; the function should
-        # handle it gracefully. We only assert it returns a dict with
-        # the expected keys — the actual accuracy value may be nan or
-        # raise (caught internally).
-        try:
-            metrics = evaluate_oof_metrics(y_true, y_prob, close)
-        except ValueError:
-            # If sklearn raises and the function doesn't catch it, that's
-            # a known edge case — skip rather than fail. The function's
-            # contract is "don't crash on valid input", and empty arrays
-            # are degenerate but technically valid.
-            pytest.skip("scikit-learn raises ValueError on empty arrays — known edge case")
-        assert "n_trades" in metrics
+        metrics = evaluate_oof_metrics(y_true, y_prob, close)
+        assert metrics["sharpe"] == 0.0
+        assert metrics["sortino"] == 0.0
+        assert metrics["max_dd"] == 0.0
+        assert metrics["win_rate"] == 0.0
         assert metrics["n_trades"] == 0
+        assert metrics["accuracy"] == 0.0
+        assert metrics["f1"] == 0.0
 
     def test_single_element_input_does_not_crash(self):
         """Single-element input should not raise — degenerate but valid."""
