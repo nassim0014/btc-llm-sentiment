@@ -1,8 +1,2 @@
+# Default owner
 * @nassim0014
-
-# Security-sensitive paths — require maintainer review
-src/utils/safe_pickle.py @nassim0014
-src/config.py             @nassim0014
-.github/workflows/        @nassim0014
-Dockerfile                @nassim0014
-SECURITY.md               @nassim0014
