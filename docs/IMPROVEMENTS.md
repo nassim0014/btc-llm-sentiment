@@ -21,6 +21,50 @@ this PR (creating it) is itself item 0.
 
 ## Now
 
+### 🔴 `main` CI's Docker build has been red for 7+ days — `numpy==2.5.0` needs Python 3.12, builder image is 3.11
+Filed by the repo-review loop, 2026-08-25. The `Docker build` job on `main`
+has failed on every run since at least 2026-08-18T17:45 (checked back
+through 20+ runs, all same root cause) — confirmed still red as of this run.
+
+`requirements.txt` pins:
+```
+pandas==3.0.3
+numpy==2.5.0
+```
+`numpy==2.5.0` requires Python ≥3.12 (`Requires-Python >=3.12`), but the
+Dockerfile's builder stage installs into a Python 3.11 image. The build
+log is unambiguous:
+```
+ERROR: Could not find a version that satisfies the requirement numpy==2.5.0
+  (from versions: ... 2.4.6)   ← 2.5.0 not resolvable on cp311
+ERROR: No matching distribution found for numpy==2.5.0
+buildx failed with: ... pip install --no-cache-dir -r requirements.txt did not complete successfully: exit code: 1
+```
+Every other CI job (Test 3.11/3.12, ML import smoke, Security scans) is
+green — this is Docker-build-specific because only that job's base image
+is pinned to 3.11 while `numpy==2.5.0` needs 3.12+.
+
+This is currently silent in practice because the lightweight test jobs
+don't build the Docker image, so nothing outside `gh pr checks` surfaces
+it — but it means **no dependency PR touching pandas/numpy-adjacent code
+can ever go green on Docker build**, and it blocks auto-merge (contract
+rule 5) for every PR in this repo, not just ones that touch these pins.
+
+Fix options (ranked):
+- (a) Bump the Dockerfile's builder-stage base image to Python 3.12,
+  matching what `numpy==2.5.0` requires. Smallest diff if 3.12 is
+  otherwise fine for the runtime image too (CI already tests against
+  3.11 *and* 3.12, so 3.12 is a supported target).
+  ⚠️ **Not a pure-dependency change** — do not let a dependency-bump PR
+  smuggle this in per the auto-merge policy's own rule (a code change
+  should not ship inside a dependency PR). This needs its own PR.
+- (b) Pin `numpy` back to a 3.11-compatible version (`<2.5.0`, e.g.
+  `2.4.6`) instead of moving the builder image. Zero-risk to the runtime
+  image but reintroduces the exact version mismatch the next time
+  dependabot bumps numpy again — treat as a stopgap, not the fix.
+
+Take (a) unless there's a reason the runtime image must stay on 3.11.
+
 ### 1. Duplicate entries in `requirements.txt`
 `ipykernel` and `nbconvert` are each listed twice with conflicting versions:
 
