@@ -243,6 +243,24 @@ class TestEvaluateOofMetrics:
         assert "accuracy" in metrics
         assert "n_trades" in metrics
 
+    def test_fewer_probs_than_returns_does_not_crash(self):
+        """y_prob shorter than close-1 must not raise a broadcast error.
+
+        The date-alignment step trims signal *or* returns to their common
+        prefix. Before the guard was made symmetric, ``signal * rets`` raised
+        ``ValueError: operands could not be broadcast together`` whenever
+        ``len(y_prob) < len(close) - 1``. ``test_mismatched_lengths_fees_skipped``
+        only exercises the opposite direction (signal longer than rets).
+        """
+        y_true = np.array([1, 0])
+        y_prob = np.array([0.9, 0.1])
+        # close has 5 elements -> len(rets) = 4, len(signal) = 2
+        close = np.array([100.0, 101.0, 102.0, 103.0, 104.0])
+        metrics = evaluate_oof_metrics(y_true, y_prob, close)
+        assert "sharpe" in metrics
+        assert np.isfinite(metrics["sharpe"])
+        assert metrics["n_trades"] == 0
+
     def test_zero_std_returns_finite_sharpe(self):
         """When all returns are identical (std=0), sharpe should be finite."""
         y_true = np.array([1, 1, 1, 1])
