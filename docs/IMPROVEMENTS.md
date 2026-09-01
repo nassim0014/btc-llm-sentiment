@@ -65,72 +65,40 @@ Fix options (ranked):
 
 Take (a) unless there's a reason the runtime image must stay on 3.11.
 
-### 1. Duplicate entries in `requirements.txt`
-`ipykernel` and `nbconvert` are each listed twice with conflicting versions:
+> **2026-08-29 — root cause is deeper than the py3.11/3.12 split, and
+> option (a) will NOT fix it.** Ran `pip install --dry-run -r
+> requirements.txt` on Python 3.12: it is `ResolutionImpossible` on 3.12
+> too. The binding conflict is `shap==0.52.0` (requires `numpy>=2`) vs
+> `tensorflow-cpu==2.17.0` (requires `numpy<2.0.0` on py≥3.12) — **no
+> single `numpy` version can satisfy both**, so neither moving the
+> builder image (a) nor pinning `numpy` down (b) is sufficient on its
+> own. One of `shap` / `tensorflow-cpu` has to move. Dependabot PR #40
+> bumps `tensorflow-cpu` 2.17→2.21, which is the likely unblocker but is
+> a real ML-stack version bump on a file whose header says "bump versions
+> deliberately via a PR" — owner call. This item and item 7 (Security
+> scans red) are the **same** root cause; work them as one PR, not two.
 
-```
-ipykernel==7.3.0       # line 47
-nbconvert==7.16.4      # line 48
-ipykernel==6.29.5      # line 49  ← overrides 7.3.0
-nbconvert==7.17.1      # line 50  ← overrides 7.16.4
-```
+### 3. `src/cv/walk_forward.py` — `evaluate_oof_metrics` degenerate-input guards
+_Items 1 and 2 were already merged (PR #23, #24) but never ticked off
+here — verified and moved to Done on 2026-08-29. Item 3 as originally
+written asked for four branch tests; three of them (empty input,
+single-element input, zero-std) already shipped in PR #33 and are in
+`tests/test_backtest.py::TestEvaluateOofMetrics`. This is what remained._
 
-`pip install -r` silently picks the last occurrence, so `ipykernel==7.3.0`
-and `nbconvert==7.16.4` are dead lines that look like the pinned version
-but never get installed. `pip-audit` (which the README claims to run)
-won't catch this — it audits the resolved environment, not the file.
+The "mismatched lengths" branch was only half-covered:
+`test_mismatched_lengths_fees_skipped` exercises `len(signal) > len(rets)`
+(signal gets truncated), but `len(y_prob) < len(close) - 1` fell straight
+into `strat_rets = signal * rets` and raised
+`ValueError: operands could not be broadcast together`. Not reachable from
+`run_walk_forward` (there `len(y_prob) == len(close_va)` always), so it is
+a robustness gap rather than a live crash — but the function already
+defends the other direction, so the asymmetry was almost certainly
+unintended.
 
-Two questions for whoever takes this item:
-- Which version is correct? `6.29.5` for ipykernel is the older,
-  widely-tested line; `7.3.0` is newer but ipykernel 7.x is a recent
-  release. Same shape for nbconvert.
-- Are both lines even needed? The duplicate looks like a copy-paste
-  accident during the Phase 2 notebook work, not a deliberate pin.
-
-Mechanical fix once the version question is answered: delete the wrong
-line, leave the right one, no other changes.
-
-### 2. `audit/` directory is never created — `sentiment_alert.py` crashes on first run
-`src/config.py` declares `AUDIT_DIR = ROOT / "audit"` and
-`ALERT_LOG_PATH = AUDIT_DIR / "sentiment_alerts.csv"`.
-`scripts/sentiment_alert.py` writes to that path at line ~307
-(`ALERT_LOG_PATH.exists()` check + csv writer). Nothing in the repo ever
-calls `AUDIT_DIR.mkdir(...)`.
-
-Reproduce: `python scripts/sentiment_alert.py` on a fresh clone →
-`FileNotFoundError: [Errno 2] No such file or directory: '.../audit/
-sentiment_alerts.csv'`.
-
-Fix options (ranked):
-- (a) Add `AUDIT_DIR.mkdir(parents=True, exist_ok=True)` at the top of
-  `scripts/sentiment_alert.py` before the first write. Smallest diff,
-  clearest intent. The script is the only consumer of `ALERT_LOG_PATH`
-  today, so the directory-creation belongs there.
-- (b) Make `AUDIT_DIR` a `pathlib.Path` property that creates itself on
-  first access. Cleaner but over-engineered for one consumer.
-- (c) Add `audit/` to the repo with a `.gitkeep`. Wrong — the path is
-  `ROOT/"audit"`, not `ROOT/data/audit`, and committing an empty dir
-  doesn't fix the bug if someone deletes it.
-
-Take (a). Add a test that runs `sentiment_alert.py`'s write path against
-a tmp path and asserts the file exists after — that test would have
-caught this.
-
-### 3. `src/cv/walk_forward.py` coverage gap — lines 292-333
-`evaluate_oof_metrics` is the only function in the file with a coverage
-gap of consequence (file is 66% overall; the rest is at 100% or
-intentionally-untested error branches). The existing
-`test_evaluate_oof_metrics` covers the perfect-predictions and
-random-around-half cases, but the function has branches for:
-- empty input arrays
-- single-element input
-- mismatched lengths between predictions and actuals
-- division-by-zero (when std is 0)
-
-All four are silent error paths today. Add one test per branch. This is
-the same shape as kinz-competitor-intelligence's coverage-gap work
-(PR #39 there) — pure-Python logic, no ML deps, runs in the lightweight
-CI install.
+**Done in PR (this cycle):** alignment step now trims signal *or* returns
+to their common prefix; added
+`test_fewer_probs_than_returns_does_not_crash` (proven to fail without the
+guard). `evaluate_oof_metrics` branch coverage is now complete.
 
 ## Next
 
@@ -169,6 +137,25 @@ notebook errors unchanged — not from this migration).
 ---
 
 ## Done
+
+- **PR (2026-08-29)** — Item 3 remainder: made the signal/returns
+  alignment in `evaluate_oof_metrics` symmetric so `len(y_prob) <
+  len(close) - 1` no longer raises a broadcast `ValueError`. Added
+  `test_fewer_probs_than_returns_does_not_crash` (proven to fail without
+  the guard by reverting it). 83 tests pass (was 82), `ruff` clean,
+  `bandit` clean on the changed file. Also reconciled backlog bookkeeping:
+  items 1 & 2 verified already-fixed and moved here; the 🔴 Docker item
+  re-diagnosed (see its note — real cause is a `shap`/`tensorflow-cpu`
+  numpy deadlock, same root as item 7).
+
+- **PR #23 / #24 (verified 2026-08-29, back-filled here)**
+  - **Item 1** — Duplicate `ipykernel` / `nbconvert` pins in
+    `requirements.txt`. Fixed in PR #23; current file has a single pin
+    each (`ipykernel==7.3.0`, `nbconvert==7.17.1`). No duplicates remain.
+  - **Item 2** — `audit/` directory never created before
+    `sentiment_alert.py` writes `sentiment_alerts.csv`. Fixed in PR #24
+    (commit `bf57c4e`): `ALERT_LOG_PATH.parent.mkdir(parents=True,
+    exist_ok=True)` now runs before the first write.
 
 - **PR #1 (this PR)** — Created `docs/IMPROVEMENTS.md` as the first
   cycle's deliverable. Read the codebase end-to-end: 27 tests pass,
