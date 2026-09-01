@@ -100,6 +100,48 @@ to their common prefix; added
 `test_fewer_probs_than_returns_does_not_crash` (proven to fail without the
 guard). `evaluate_oof_metrics` branch coverage is now complete.
 
+### 7. `Security scans` CI job red 8+ days — `pip-audit` can't resolve `requirements.txt`   `source: ci-red`
+Filed by the repo-backlog-refresh loop, 2026-08-29. The `Security scans`
+job on `main` (the `pip-audit -r requirements.txt --strict` step,
+"Dependency audit (pip-audit) — blocking on main") has failed on every
+`main` run since at least 2026-08-21 — confirmed red on the runs of
+2026-08-21, 2026-08-22 (×3), and 2026-08-25 (latest). That is a
+**separate failure from the 🔴 Docker-build item above**: this job runs
+on Python 3.12, where `numpy==2.5.0` installs fine, so the py3.11 builder
+image is not the cause here.
+
+Root cause is a genuine mutual incompatibility among the pinned versions.
+The pip resolver output is unambiguous:
+```
+ERROR: Cannot install -r requirements.txt (line 11), -r requirements.txt (line 12),
+  -r requirements.txt (line 17), -r requirements.txt (line 25) and numpy==2.5.0
+  because these package versions have conflicting dependencies.
+ERROR: ResolutionImpossible
+```
+Lines 11/12/17/25 are `yfinance==0.2.40`, `pandas==3.0.3`,
+`transformers==4.44.2`, `tensorflow-cpu==2.17.0`. At least one of these
+pinned versions constrains `numpy` below `2.5.0`, so `numpy==2.5.0` can
+never co-resolve with the rest of the stack — `pip install -r
+requirements.txt` itself is broken on any interpreter, not just in CI.
+Whoever takes this should read the resolver's full backtrace to see which
+pin is the binding constraint.
+
+Why this is currently silent: the lightweight `Test 3.11/3.12` jobs
+install a hand-picked subset (`numpy pandas scikit-learn pytest
+pytest-cov ruff bandit`), not the full `requirements.txt`, so they stay
+green. Only the `Security scans` job and a real `pip install -r
+requirements.txt` hit the conflict. As with the Docker item, this blocks
+auto-merge (contract rule 5) for **every** PR in the repo.
+
+Fix: move the `numpy` pin to a version the rest of the pinned stack
+accepts, in its own PR (requirements-only, no code). This overlaps
+fix-option (b) of the 🔴 Docker item, so the two must be reconciled —
+do not open two PRs that each move the `numpy` pin. Dependabot PR #40
+(`tensorflow-cpu` 2.17→2.21) is related but does not fix this on its
+own; the `numpy` pin still has to move.
+
+Loop-Agent: backlog-refresh / claude / laptop
+
 ## Next
 
 ### 4. ~~ML-heavy modules at 0% coverage — needs an owner decision~~ ✅
