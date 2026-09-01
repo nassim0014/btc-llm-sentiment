@@ -182,9 +182,13 @@ def evaluate_oof_metrics(
     # signals on the same dates. Use the simple backtest logic from run_pipeline.
     signal = y_pred
     rets = np.diff(close) / close[:-1]
-    # Align: signals[0:len(rets)] apply to rets[0:len(rets)]
-    if len(signal) > len(rets):
-        signal = signal[: len(rets)]
+    # Align on the common prefix: signal[i] is the position taken on day i,
+    # rets[i] is that day's return. Trim whichever side is longer so the
+    # element-wise product below cannot raise a broadcast error when the
+    # caller passes y_prob and close with inconsistent lengths.
+    common = min(len(signal), len(rets))
+    signal = signal[:common]
+    rets = rets[:common]
     strat_rets = signal * rets
     trade_flags = np.abs(np.diff(np.insert(signal, 0, signal[0] if len(signal) else 0)))
     # Simpler: signal changes
