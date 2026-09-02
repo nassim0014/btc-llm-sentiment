@@ -9,8 +9,8 @@
 
 # ---- Data ingestion ----
 yfinance==0.2.40
-pandas==3.0.3
-numpy==2.5.0
+pandas==2.2.2
+numpy==1.26.4
 requests==2.32.3
 
 # ---- NLP / Sentiment ----
@@ -29,7 +29,7 @@ scikit-learn==1.9.0
 optuna==3.6.1
 
 # ---- Model interpretability (Phase 2) ----
-shap==0.52.0
+shap==0.46.0
 
 # ---- Parquet caching for FinBERT scores (Phase 2) ----
 pyarrow==17.0.0
