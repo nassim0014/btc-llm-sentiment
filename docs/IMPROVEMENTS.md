@@ -21,6 +21,53 @@ this PR (creating it) is itself item 0.
 
 ## Now
 
+### 9. 🔴 `main` CI red on two jobs — but NOT for the reasons the two items below describe anymore   `source: ci-red`
+Filed by the repo-review loop, 2026-09-04. Both pre-existing items directly
+below (the un-numbered Docker item and item 7) describe a `numpy==2.5.0` /
+`pandas==3.0.3` pin state that **no longer matches `main`** —
+`requirements.txt` on `main` today pins `numpy==1.26.4` and
+`pandas==2.2.2` (the anchor fix from PR #48). Re-verified by reading
+`requirements.txt` directly and by re-running both jobs' logs on the
+latest `main` run (`33689138271`, 2026-09-02T22:11Z). The anchor-conflict
+premise is resolved; something else is now failing on both jobs. Flagging
+for whoever owns backlog hygiene here — the items below need their root
+cause rewritten, not just closed, since `main` genuinely is still red:
+
+**Docker build** — no longer a pip resolution failure. The build itself
+succeeds; the job then fails at the Trivy scan step:
+```
+image-ref: btc-llm-sentiment:ci
+FATAL  Fatal error  run error: image scan error: ... unable to find the
+  specified image "btc-llm-sentiment:ci" in [docker containerd podman remote]
+```
+Cause: `docker/build-push-action@v7` runs with `push: false` AND
+`load: false` (visible in the job log), so buildx leaves the image only in
+its own cache — "WARNING: No output specified with docker-container
+driver" — and never loads it into the local Docker Engine. Trivy then asks
+the engine for an image that was never given to it. Fix is a one-line
+workflow change: add `load: true` to the `build-push-action` step (or scan
+straight from the buildx output). Not a dependency-pin issue at all this
+time — a CI workflow fix, and per this loop's own rules that's out of
+scope for a dependency merge to smuggle in.
+
+**Security scans** — `pip-audit` now resolves the pinned stack fine (the
+old `ResolutionImpossible` is gone) and runs to completion, but fails
+`--strict` because it's finding real CVEs in already-pinned versions:
+```
+Found 82 known vulnerabilities in 7 packages
+transformers 4.44.2   CVE-2026-9856             → fix: 5.10.0
+torch        2.4.1    CVE-2025-2148 / -2149 / -2998 / -2999 / -3001
+                                                 → fixes: 2.9.1 / 2.10.0
+```
+`transformers` 4.44.2→5.10.0 and `torch` 2.4.1→2.9.1+ are both major
+version jumps on core ML dependencies (FinBERT scoring, LSTM training) —
+an owner decision on breaking-change risk, not something this loop or a
+routine dependency PR should force through. Recommend the owner either
+schedules that upgrade deliberately or accepts the residual risk and
+relaxes `--strict` for these two packages explicitly (not silently).
+
+Loop-Agent: repo-review-loop / claude / laptop
+
 ### 🔴 `main` CI's Docker build has been red for 7+ days — `numpy==2.5.0` needs Python 3.12, builder image is 3.11
 Filed by the repo-review loop, 2026-08-25. The `Docker build` job on `main`
 has failed on every run since at least 2026-08-18T17:45 (checked back
