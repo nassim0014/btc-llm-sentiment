@@ -7,6 +7,9 @@ Alert types:
   - 🟡 Bearish: sentiment < -0.1
   - 🟢 Very Bullish: sentiment > 0.3
   - 📈 Bullish: sentiment > 0.1
+  - ⚠️ Stale Data: source news is older than ALERT_MAX_SOURCE_AGE_DAYS —
+    fires instead of any directional alert above, regardless of the
+    computed sentiment value
 
 Notification channels (configured via environment variables):
   - Email (SMTP): SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, ALERT_EMAIL_TO
@@ -41,6 +44,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from src.config import (
     ALERT_LOG_PATH,
+    ALERT_MAX_SOURCE_AGE_DAYS,
     ALERT_THRESHOLDS,
     NEWS_URL,
     REQUEST_TIMEOUT_SECONDS,
@@ -102,8 +106,45 @@ def fetch_latest_sentiment() -> dict | None:
 # ---------------------------------------------------------------------
 # Alert evaluation
 # ---------------------------------------------------------------------
-def evaluate_alert(sentiment_data: dict) -> dict | None:
-    """Determine if an alert should be fired based on sentiment thresholds."""
+def evaluate_alert(
+    sentiment_data: dict,
+    *,
+    now: datetime | None = None,
+    max_source_age_days: float = ALERT_MAX_SOURCE_AGE_DAYS,
+) -> dict | None:
+    """Determine if an alert should be fired based on sentiment thresholds.
+
+    Before checking direction, checks whether the underlying news data is
+    stale relative to `now`. The daily average is computed from whatever
+    headlines the source happens to contain — if the source hasn't been
+    updated in days, a "very bullish" or "very bearish" verdict is not a
+    live signal, it's the same number firing again. When `source_date` is
+    older than `max_source_age_days`, this returns a STALE_DATA alert
+    instead of a directional one, no matter how extreme the stored
+    sentiment value is.
+    """
+    if now is None:
+        now = datetime.now(UTC)
+
+    source_date = pd.to_datetime(sentiment_data["source_date"], utc=True, errors="coerce")
+    if pd.notna(source_date):
+        age_days = (now - source_date.to_pydatetime()).total_seconds() / 86400
+        if age_days > max_source_age_days:
+            return {
+                "level": "STALE_DATA",
+                "emoji": "⚠️",
+                "message": (
+                    f"Sentiment source data is {age_days:.1f} days old "
+                    f"(source: {sentiment_data['source_date']}) — no directional "
+                    f"alert fired."
+                ),
+                "sentiment": sentiment_data["daily_avg_sentiment"],
+                "headline": sentiment_data["latest_headline"],
+                "source_date": sentiment_data["source_date"],
+                "headline_count": sentiment_data["headline_count_24h"],
+                "timestamp": sentiment_data["fetch_time"],
+            }
+
     avg = sentiment_data["daily_avg_sentiment"]
 
     if avg >= THRESHOLDS["very_bullish"]:
