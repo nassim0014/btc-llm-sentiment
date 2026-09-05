@@ -80,6 +80,13 @@ ALERT_THRESHOLDS = {
     "very_bearish": -0.3,
 }
 
+# The alert cron runs daily against a static news CSV that is not guaranteed
+# to have been refreshed recently (see sentiment_alert.py's staleness guard).
+# If the newest headline is older than this many days, evaluate_alert() fires
+# a STALE_DATA alert instead of a directional one — a confident bullish/
+# bearish verdict computed from days-old news is not a live trading signal.
+ALERT_MAX_SOURCE_AGE_DAYS = 2
+
 # ────────────────────────────────────────────────────────────
 # Alert log
 # ────────────────────────────────────────────────────────────
