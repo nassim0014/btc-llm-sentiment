@@ -20,14 +20,29 @@ import pytest
 from scripts.sentiment_alert import evaluate_alert
 
 ROOT = Path(__file__).resolve().parent.parent
-BASE_REV = "main"
 
-_IN_GIT_REPO = (
-    subprocess.run(
-        ["git", "rev-parse", "--git-dir"], cwd=ROOT, capture_output=True
-    ).returncode
-    == 0
-)
+# CI checks out the PR merge ref at shallow depth without fetching `main`
+# (only the gitleaks job passes fetch-depth: 0), so `main` may not exist as a
+# local ref even though `.git` is present. Try the plausible names for the
+# base branch and fall back to skipping — a false-red CI run from a missing
+# ref is worse than a skipped pin, and the other 5 tests still cover the new
+# behavior either way.
+_BASE_REV_CANDIDATES = ("main", "origin/main")
+
+
+def _resolve_base_rev() -> str | None:
+    for rev in _BASE_REV_CANDIDATES:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", rev],
+            cwd=ROOT,
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            return rev
+    return None
+
+
+BASE_REV = _resolve_base_rev()
 
 
 def _stale_bullish_payload(now: datetime) -> dict:
@@ -77,7 +92,10 @@ def _load_module_from_git(rev: str, relpath: str, name: str):
     return module
 
 
-@pytest.mark.skipif(not _IN_GIT_REPO, reason="requires a git checkout to load the base-commit module")
+@pytest.mark.skipif(
+    BASE_REV is None,
+    reason="no local 'main'/'origin/main' ref to pin against (shallow checkout without fetch-depth: 0)",
+)
 def test_old_code_fires_directional_alert_on_stale_data():
     """Base-commit regression proof: the OLD evaluate_alert() (as committed
     on main, before this change) has no staleness concept at all, so
