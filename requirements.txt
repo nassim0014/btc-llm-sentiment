@@ -26,7 +26,7 @@ tensorflow-cpu==2.17.0
 scikit-learn==1.9.0
 
 # ---- Hyperparameter optimization (Phase 2) ----
-optuna==3.6.1
+optuna==4.9.0
 
 # ---- Model interpretability (Phase 2) ----
 shap==0.46.0
