@@ -35,7 +35,7 @@ shap==0.46.0
 pyarrow==17.0.0
 
 # ---- Visualization ----
-matplotlib==3.9.2
+matplotlib==3.11.1
 seaborn==0.13.2
 
 # ---- Interactive dashboard (Streamlit app) ----
