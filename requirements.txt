@@ -22,7 +22,7 @@ tqdm==4.68.3
 # tensorflow-cpu is used instead of tensorflow to avoid GPU driver issues
 # on Streamlit Cloud and CI. For local GPU training, install
 # `tensorflow==2.17.0` instead.
-tensorflow-cpu==2.17.0
+tensorflow-cpu==2.21.0
 scikit-learn==1.9.0
 
 # ---- Hyperparameter optimization (Phase 2) ----
