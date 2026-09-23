@@ -21,34 +21,6 @@ this PR (creating it) is itself item 0.
 
 ## Now
 
-### 11. 🔴 `Test (Python 3.11/3.12)` red since 2026-09-10 — `tests/test_sentiment_alert.py` imports `requests`, missing from the lightweight CI install list   `source: ci-red`
-
-_First observed 2026-09-10, still failing on `main` as of the latest CI run
-(`34692181052`, 2026-09-12) — over the 7-day bar._
-
-`tests/test_sentiment_alert.py` (added 2026-09-05) collects
-`scripts/sentiment_alert.py`, which does a module-level `import requests`
-(`scripts/sentiment_alert.py:41`). The lightweight CI test job's install
-list (`pip install numpy pandas scikit-learn pytest pytest-cov ruff bandit`
-— see `.github/workflows/ci.yml`) never included `requests`, so both
-`Test (Python 3.11)` and `Test (Python 3.12)` fail at collection:
-
-```
-ERROR collecting tests/test_sentiment_alert.py
-ImportError while importing test module '.../tests/test_sentiment_alert.py'.
-scripts/sentiment_alert.py:41: in <module>
-    import requests
-E   ModuleNotFoundError: No module named 'requests'
-```
-
-This is separate from item 10's torch/transformers/Trivy failures (same CI
-run, different jobs) — fixing item 10 will not clear this one. Fix is a
-one-line addition to the lightweight test job's install list
-(`.github/workflows/ci.yml`), which is a forbidden path for this loop —
-flagging for the owner or a loop with workflow-file permission.
-
-Loop-Agent: repo-review-loop / claude / laptop (2026-09-18)
-
 ### 10. 🔴 `main` CI red on two jobs — both now trace to CVE-laden ML pins (OWNER DECISION)   `source: ci-red`
 
 _Consolidates former items 9, the un-numbered Docker item, and item 7 —
@@ -137,6 +109,23 @@ notebook errors unchanged — not from this migration).
 ---
 
 ## Done
+
+- **PR (2026-09-23, this PR)** — Item 11: `Test (Python 3.11/3.12)` was red
+  on `main` (collection error, 0 tests could run) because
+  `tests/test_sentiment_alert.py` collects `scripts/sentiment_alert.py`,
+  which imports `requests` at module level, and the lightweight CI install
+  list never included it. Added `requests` to the install list in
+  `.github/workflows/ci.yml`. Verified: reproduced the exact collection
+  error locally by removing `requests` from a venv matching CI's install
+  list, then confirmed the fix restores it — 89 passed (was 1 collection
+  error / 0 collected). `ruff check src/ scripts/ tests/` clean, `bandit -r
+  src/ scripts/ -ll -ii -x tests/` clean (0 medium/high).
+  **This PR touches `.github/workflows/**`, a forbidden path for
+  auto-merge (merge-safety contract rule 6) — left open with
+  `needs-review` regardless of CI outcome, per that rule.** Fixing this
+  also matters beyond item 11 itself: merge-safety rule 5 requires the
+  default branch be green before *any* PR in this repo can auto-merge, so
+  until this lands, nothing here auto-merges even for unrelated changes.
 
 - **PR (2026-09-10)** — Backlog consolidation only (docs). Verified item 3
   landed on `main` as **PR #46** (commit `4c7dd61`, merged 2026-09-01) and
