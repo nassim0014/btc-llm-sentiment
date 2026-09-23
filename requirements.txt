@@ -11,11 +11,11 @@
 yfinance==0.2.40
 pandas==2.2.2
 numpy==1.26.4
-requests==2.32.3
+requests==2.33.0
 
 # ---- NLP / Sentiment ----
-transformers==4.44.2
-torch==2.4.1
+transformers==5.10.1
+torch==2.13.0
 tqdm==4.68.3
 
 # ---- ML / Deep Learning ----
@@ -32,14 +32,14 @@ optuna==3.6.1
 shap==0.52.0
 
 # ---- Parquet caching for FinBERT scores (Phase 2) ----
-pyarrow==17.0.0
+pyarrow==23.0.1
 
 # ---- Visualization ----
 matplotlib==3.9.2
 seaborn==0.13.2
 
 # ---- Interactive dashboard (Streamlit app) ----
-streamlit==1.39.0
+streamlit==1.54.0
 plotly==7.0.0
 
 # ---- Notebook runner ----
