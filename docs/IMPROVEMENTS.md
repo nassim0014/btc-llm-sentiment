@@ -21,6 +21,44 @@ this PR (creating it) is itself item 0.
 
 ## Now
 
+### 12. 🔴 `Docker build` / `Security scans` red — `shap==0.52.0` requires Python ≥3.12, Docker image pins Python 3.11   `source: ci-red`
+
+_First observed on this exact failure mode 2026-09-23 (run `35849799708`,
+triggered by the merge of dependabot PR #40, `tensorflow-cpu` → `2.21.0`).
+The `Docker build` and `Security scans` jobs on `main` have been
+continuously red since 2026-09-10 (item 10, below) — this is a **new,
+different root cause** superseding item 10's original one, not a fresh
+7-day clock._
+
+`requirements.txt` pins `shap==0.52.0`, but `Dockerfile` hardcodes
+`ARG PYTHON_VERSION=3.11`. `shap` 0.52.0 requires Python ≥3.12:
+
+```
+ERROR: Ignored the following versions that require a different python
+version: 0.52.0 Requires-Python >=3.12 ...
+ERROR: Could not find a version that satisfies the requirement
+shap==0.52.0
+process "/bin/sh -c pip install --no-cache-dir -r requirements.txt" did
+not complete successfully: exit code: 1
+```
+
+Same conflict independently breaks `Security scans` (`pip-audit` can't
+resolve an install plan for `requirements.txt` at all — `ResolutionImpossible`).
+This is a **dependabot desync pattern already seen in this repo**: recent
+solo-package pip bumps (`shap`, `tensorflow-cpu`, `numpy`, `pandas`) land
+individually via dependabot without checking they still form a mutually
+installable set with the pinned Docker Python version and each other.
+
+Two independent fixes, either clears both jobs — owner call:
+- Bump `ARG PYTHON_VERSION` to `3.12` in `Dockerfile` (verify `tensorflow-cpu==2.21.0`
+  and the rest of the pinned set also support 3.12 first), **or**
+- Pin `shap` back to a 3.11-compatible release (0.51.0 or earlier).
+
+Also still open, unrelated: item 11 below (`Test` job, missing `requests`
+import) — reverified still failing on this same CI run.
+
+Loop-Agent: repo-review-loop / claude / laptop (2026-09-23)
+
 ### 11. 🔴 `Test (Python 3.11/3.12)` red since 2026-09-10 — `tests/test_sentiment_alert.py` imports `requests`, missing from the lightweight CI install list   `source: ci-red`
 
 _First observed 2026-09-10, still failing on `main` as of the latest CI run
