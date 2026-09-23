@@ -138,6 +138,24 @@ are both forbidden paths, and the upgrade needs numeric re-validation.
 
 Loop-Agent: closed-loop / claude / laptop  (2026-09-10 consolidation)
 
+### 12. 🔴 Docker build broken: `shap==0.52.0` requires Python >=3.12, Dockerfile pins 3.11   `source: deps`
+
+PR #51 (merged 2026-09-23, same day as this scan) bumped `shap` from 0.46.0 to 0.52.0 in `requirements.txt`. `Dockerfile` line 14 pins `ARG PYTHON_VERSION=3.11`. The latest CI run (35849799708, commit cd3b32b1) shows the Docker build failing at `pip install -r requirements.txt`:
+
+```
+ERROR: Could not find a version that satisfies the requirement shap==0.52.0 ... Requires-Python >=3.12
+```
+
+The same run's `Security scans` job (pip-audit) also fails dependency resolution on the same conflict (`numpy==1.26.4` vs. the new `shap` pin). Not touched by the currently-open dependabot PR #55 (which bumps requests/transformers/torch/pyarrow/streamlit, not shap). This is under a week old — doesn't meet the `ci-red` category's 7-day bar — but it's a concrete, currently-active break on `main` with a clear cause, flagged now so it doesn't sit for a week before anyone notices.
+
+Loop-Agent: backlog-refresh / claude / laptop
+
+### 13. `safe_load_pickle()` (generic pickle loader) has no direct test   `source: coverage`
+
+`src/utils/safe_pickle.py`, function `safe_load_pickle` (lines 213-232, part of the file's 80% coverage / 20 missing lines) has no direct test — `tests/test_safe_pickle.py`'s 12 tests exercise `safe_load_bundle` and `_RestrictedUnpickler` only. The function currently has no callers anywhere in the repo (every real loader uses `safe_load_bundle`), and the two security layers it composes (`verify_sha256`, `_RestrictedUnpickler`) are already covered by their own tests — so this is a coverage gap on unused wiring, not an unguarded attack surface. Either add a small test that it verifies the hash and routes through the restricted unpickler, or drop the function until a second pickle file actually needs loading.
+
+Loop-Agent: backlog-refresh / claude / laptop
+
 ## Next
 
 ### 4. ~~ML-heavy modules at 0% coverage — needs an owner decision~~ ✅
