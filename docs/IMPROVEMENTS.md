@@ -21,6 +21,72 @@ this PR (creating it) is itself item 0.
 
 ## Now
 
+### 12. 🔴 `Docker build` / `Security scans` red — `shap==0.52.0` requires Python ≥3.12, Docker image pins Python 3.11   `source: ci-red`
+
+_First observed on this exact failure mode 2026-09-23 (run `35849799708`,
+triggered by the merge of dependabot PR #40, `tensorflow-cpu` → `2.21.0`).
+The `Docker build` and `Security scans` jobs on `main` have been
+continuously red since 2026-09-10 (item 10, below) — this is a **new,
+different root cause** superseding item 10's original one, not a fresh
+7-day clock._
+
+`requirements.txt` pins `shap==0.52.0`, but `Dockerfile` hardcodes
+`ARG PYTHON_VERSION=3.11`. `shap` 0.52.0 requires Python ≥3.12:
+
+```
+ERROR: Ignored the following versions that require a different python
+version: 0.52.0 Requires-Python >=3.12 ...
+ERROR: Could not find a version that satisfies the requirement
+shap==0.52.0
+process "/bin/sh -c pip install --no-cache-dir -r requirements.txt" did
+not complete successfully: exit code: 1
+```
+
+Same conflict independently breaks `Security scans` (`pip-audit` can't
+resolve an install plan for `requirements.txt` at all — `ResolutionImpossible`).
+This is a **dependabot desync pattern already seen in this repo**: recent
+solo-package pip bumps (`shap`, `tensorflow-cpu`, `numpy`, `pandas`) land
+individually via dependabot without checking they still form a mutually
+installable set with the pinned Docker Python version and each other.
+
+Two independent fixes, either clears both jobs — owner call:
+- Bump `ARG PYTHON_VERSION` to `3.12` in `Dockerfile` (verify `tensorflow-cpu==2.21.0`
+  and the rest of the pinned set also support 3.12 first), **or**
+- Pin `shap` back to a 3.11-compatible release (0.51.0 or earlier).
+
+Also still open, unrelated: item 11 below (`Test` job, missing `requests`
+import) — reverified still failing on this same CI run.
+
+Loop-Agent: repo-review-loop / claude / laptop (2026-09-23)
+
+### 11. 🔴 `Test (Python 3.11/3.12)` red since 2026-09-10 — `tests/test_sentiment_alert.py` imports `requests`, missing from the lightweight CI install list   `source: ci-red`
+
+_First observed 2026-09-10, still failing on `main` as of the latest CI run
+(`34692181052`, 2026-09-12) — over the 7-day bar._
+
+`tests/test_sentiment_alert.py` (added 2026-09-05) collects
+`scripts/sentiment_alert.py`, which does a module-level `import requests`
+(`scripts/sentiment_alert.py:41`). The lightweight CI test job's install
+list (`pip install numpy pandas scikit-learn pytest pytest-cov ruff bandit`
+— see `.github/workflows/ci.yml`) never included `requests`, so both
+`Test (Python 3.11)` and `Test (Python 3.12)` fail at collection:
+
+```
+ERROR collecting tests/test_sentiment_alert.py
+ImportError while importing test module '.../tests/test_sentiment_alert.py'.
+scripts/sentiment_alert.py:41: in <module>
+    import requests
+E   ModuleNotFoundError: No module named 'requests'
+```
+
+This is separate from item 10's torch/transformers/Trivy failures (same CI
+run, different jobs) — fixing item 10 will not clear this one. Fix is a
+one-line addition to the lightweight test job's install list
+(`.github/workflows/ci.yml`), which is a forbidden path for this loop —
+flagging for the owner or a loop with workflow-file permission.
+
+Loop-Agent: repo-review-loop / claude / laptop (2026-09-18)
+
 ### 10. 🔴 `main` CI red on two jobs — both now trace to CVE-laden ML pins (OWNER DECISION)   `source: ci-red`
 
 _Consolidates former items 9, the un-numbered Docker item, and item 7 —
@@ -71,6 +137,24 @@ loop cannot clear this itself — `requirements*.txt` and `.github/workflows/**`
 are both forbidden paths, and the upgrade needs numeric re-validation.
 
 Loop-Agent: closed-loop / claude / laptop  (2026-09-10 consolidation)
+
+### 12. 🔴 Docker build broken: `shap==0.52.0` requires Python >=3.12, Dockerfile pins 3.11   `source: deps`
+
+PR #51 (merged 2026-09-23, same day as this scan) bumped `shap` from 0.46.0 to 0.52.0 in `requirements.txt`. `Dockerfile` line 14 pins `ARG PYTHON_VERSION=3.11`. The latest CI run (35849799708, commit cd3b32b1) shows the Docker build failing at `pip install -r requirements.txt`:
+
+```
+ERROR: Could not find a version that satisfies the requirement shap==0.52.0 ... Requires-Python >=3.12
+```
+
+The same run's `Security scans` job (pip-audit) also fails dependency resolution on the same conflict (`numpy==1.26.4` vs. the new `shap` pin). Not touched by the currently-open dependabot PR #55 (which bumps requests/transformers/torch/pyarrow/streamlit, not shap). This is under a week old — doesn't meet the `ci-red` category's 7-day bar — but it's a concrete, currently-active break on `main` with a clear cause, flagged now so it doesn't sit for a week before anyone notices.
+
+Loop-Agent: backlog-refresh / claude / laptop
+
+### 13. `safe_load_pickle()` (generic pickle loader) has no direct test   `source: coverage`
+
+`src/utils/safe_pickle.py`, function `safe_load_pickle` (lines 213-232, part of the file's 80% coverage / 20 missing lines) has no direct test — `tests/test_safe_pickle.py`'s 12 tests exercise `safe_load_bundle` and `_RestrictedUnpickler` only. The function currently has no callers anywhere in the repo (every real loader uses `safe_load_bundle`), and the two security layers it composes (`verify_sha256`, `_RestrictedUnpickler`) are already covered by their own tests — so this is a coverage gap on unused wiring, not an unguarded attack surface. Either add a small test that it verifies the hash and routes through the restricted unpickler, or drop the function until a second pickle file actually needs loading.
+
+Loop-Agent: backlog-refresh / claude / laptop
 
 ## Next
 
