@@ -184,7 +184,7 @@ def evaluate_alert(
 def send_email_alert(alert: dict) -> bool:
     """Send an email alert via SMTP."""
     smtp_host = os.environ.get("SMTP_HOST")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_port = int(os.environ.get("SMTP_PORT") or "587")
     smtp_user = os.environ.get("SMTP_USER")
     smtp_password = os.environ.get("SMTP_PASSWORD")
     to_email = os.environ.get("ALERT_EMAIL_TO")

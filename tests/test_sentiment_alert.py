@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.sentiment_alert import evaluate_alert
+from scripts.sentiment_alert import evaluate_alert, send_email_alert
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -147,3 +147,32 @@ def test_stale_check_respects_custom_max_source_age_days():
     alert = evaluate_alert(payload, now=now, max_source_age_days=0.1)  # ~2.4h window
     assert alert is not None
     assert alert["level"] == "STALE_DATA"
+
+
+def test_send_email_alert_skips_cleanly_when_smtp_port_is_set_but_blank(monkeypatch):
+    """CI sets every SMTP_* env var, even ones left blank in repo secrets.
+
+    `os.environ.get("SMTP_PORT", "587")` only falls back to the default when
+    the key is *missing*; a present-but-empty-string SMTP_PORT (the actual
+    GitHub Actions state observed 2026-09-25, run 36139359712) made
+    `int("")` raise ValueError before the "is email configured" check ever
+    ran, crashing the whole alert script instead of skipping email.
+    """
+    monkeypatch.setenv("SMTP_PORT", "")
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.delenv("SMTP_USER", raising=False)
+    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
+    monkeypatch.delenv("ALERT_EMAIL_TO", raising=False)
+
+    alert = {
+        "level": "BEARISH",
+        "emoji": "🟡",
+        "message": "Bearish sentiment detected (-0.500)",
+        "sentiment": -0.5,
+        "headline": "example headline",
+        "source_date": "2026-09-25",
+        "headline_count": 10,
+        "timestamp": "2026-09-25T00:00:00+00:00",
+    }
+
+    assert send_email_alert(alert) is False
