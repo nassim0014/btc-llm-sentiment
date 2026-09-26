@@ -36,7 +36,11 @@ jobs:
           # Install only what the unit tests need (skip heavy ML deps
           # like tensorflow/torch/transformers — the test suite exercises
           # the pure-Python backtest + CV logic only).
-          pip install numpy pandas scikit-learn pytest pytest-cov ruff bandit
+          # requests: tests/test_sentiment_alert.py collects
+          # scripts/sentiment_alert.py, which imports requests at module
+          # level (see requirements.txt for the pinned version used
+          # elsewhere) — was missing here, breaking collection entirely.
+          pip install numpy pandas scikit-learn pytest pytest-cov ruff bandit requests
 
       - name: Syntax-check all Python files
         run: |
