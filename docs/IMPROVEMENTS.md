@@ -194,6 +194,23 @@ notebook errors unchanged — not from this migration).
 
 ## Done
 
+- **PR (2026-09-23, this PR)** — Item 11: `Test (Python 3.11/3.12)` was red
+  on `main` (collection error, 0 tests could run) because
+  `tests/test_sentiment_alert.py` collects `scripts/sentiment_alert.py`,
+  which imports `requests` at module level, and the lightweight CI install
+  list never included it. Added `requests` to the install list in
+  `.github/workflows/ci.yml`. Verified: reproduced the exact collection
+  error locally by removing `requests` from a venv matching CI's install
+  list, then confirmed the fix restores it — 89 passed (was 1 collection
+  error / 0 collected). `ruff check src/ scripts/ tests/` clean, `bandit -r
+  src/ scripts/ -ll -ii -x tests/` clean (0 medium/high).
+  **This PR touches `.github/workflows/**`, a forbidden path for
+  auto-merge (merge-safety contract rule 6) — left open with
+  `needs-review` regardless of CI outcome, per that rule.** Fixing this
+  also matters beyond item 11 itself: merge-safety rule 5 requires the
+  default branch be green before *any* PR in this repo can auto-merge, so
+  until this lands, nothing here auto-merges even for unrelated changes.
+
 - **PR (2026-09-10)** — Backlog consolidation only (docs). Verified item 3
   landed on `main` as **PR #46** (commit `4c7dd61`, merged 2026-09-01) and
   moved it here. Collapsed former items 9 + un-numbered Docker + 7 into a
