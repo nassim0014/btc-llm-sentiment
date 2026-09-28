@@ -32,7 +32,7 @@ optuna==4.9.0
 shap==0.52.0
 
 # ---- Parquet caching for FinBERT scores (Phase 2) ----
-pyarrow==17.0.0
+pyarrow==25.0.1
 
 # ---- Visualization ----
 matplotlib==3.11.1
