@@ -8,7 +8,7 @@
 # Tested with Python 3.11 / 3.12 on Linux (CI), macOS, and Colab T4 GPU.
 
 # ---- Data ingestion ----
-yfinance==0.2.40
+yfinance==1.7.0
 pandas==2.2.2
 numpy==1.26.4
 requests==2.32.3
