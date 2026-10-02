@@ -1,7 +1,7 @@
 """Tests for scripts/sentiment_alert.py's staleness guard.
 
 The alert cron runs daily against a static news CSV. If that CSV stops
-being refreshed, `evaluate_alert()` used to have no way to know — it would
+being refreshed, `evaluate_alert()` used to have no way to know - it would
 keep firing confident directional (bullish/bearish) verdicts off data that
 never changes, forever. These tests pin the OLD behavior directly from the
 fixed pre-fix commit (via `git show`, not a narrated claim) to prove the bug
@@ -23,14 +23,14 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # Pinned to the exact commit before the staleness guard landed (the parent
 # of 5b36569, the fix commit), NOT a floating "main"/"origin/main" ref. A
-# floating ref catches up once the fix is merged — at that point
+# floating ref catches up once the fix is merged - at that point
 # `git show main:...` returns the *fixed* code, and this regression-pin test
 # permanently fails by comparing main's old-code proof against itself. A
 # fixed SHA stays "the old, buggy code" forever, however far main advances.
 #
 # CI checks out the PR merge ref at shallow depth without fetching this SHA
 # (only the gitleaks job passes fetch-depth: 0), so it may not exist as a
-# local ref even though `.git` is present. Fall back to skipping — a
+# local ref even though `.git` is present. Fall back to skipping - a
 # false-red CI run from a missing ref is worse than a skipped pin, and the
 # other 5 tests still cover the new behavior either way.
 _PRE_FIX_REV = "bf57c4e"

@@ -4,7 +4,7 @@ The `engineer_features` function builds the 23 features used by the LSTM
 model: news aggregation + technical indicators (RSI, MACD, Bollinger
 Bands, returns, volatility) + LLM sentiment lags.
 
-Pure-logic (takes DataFrames, returns a DataFrame) — no Streamlit
+Pure-logic (takes DataFrames, returns a DataFrame) - no Streamlit
 dependencies, so it can be unit-tested.
 """
 from __future__ import annotations

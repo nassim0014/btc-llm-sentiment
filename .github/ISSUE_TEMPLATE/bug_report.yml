@@ -8,7 +8,7 @@ body:
     attributes:
       value: |
         Thanks for filing a bug report!
-        If this is a security vulnerability, **DO NOT** use this form — see [SECURITY.md](../../security/policy) instead.
+        If this is a security vulnerability, **DO NOT** use this form - see [SECURITY.md](../../security/policy) instead.
 
   - type: textarea
     id: what-happened

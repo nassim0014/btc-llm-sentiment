@@ -1,7 +1,7 @@
 """
 Walk-Forward Cross-Validation (expanding window) for time-series ML.
 
-Strictly preserves temporal ordering — no shuffling, no look-ahead leakage.
+Strictly preserves temporal ordering - no shuffling, no look-ahead leakage.
 
 Public API
 ----------
@@ -157,7 +157,7 @@ def evaluate_oof_metrics(
 
     y_pred = (y_prob >= threshold).astype(int)
 
-    # Early return on empty input — sklearn raises ValueError on empty
+    # Early return on empty input - sklearn raises ValueError on empty
     # arrays, and the graceful-degradation path below never reaches.
     if len(y_true) == 0:
         return {
@@ -178,7 +178,7 @@ def evaluate_oof_metrics(
         metrics["auc"] = float("nan")
 
     # Backtest on the validation close prices
-    # y_prob is aligned with close — we need close[:-1] returns aligned with
+    # y_prob is aligned with close - we need close[:-1] returns aligned with
     # signals on the same dates. Use the simple backtest logic from run_pipeline.
     signal = y_pred
     rets = np.diff(close) / close[:-1]
@@ -199,7 +199,7 @@ def evaluate_oof_metrics(
     if len(strat_rets) > 0 and len(trade_flags) == len(strat_rets):
         strat_rets = strat_rets - trade_flags * fee
     elif len(strat_rets) > 0:
-        # Mismatch — skip fee adjustment
+        # Mismatch - skip fee adjustment
         pass
 
     n_days = len(strat_rets)
@@ -252,7 +252,7 @@ class WalkForwardResult:
     def summary(self) -> str:
         """Return a multi-line string summarizing the aggregated OOF metrics."""
         return (
-            f"Walk-Forward CV — {self.n_folds} folds\n"
+            f"Walk-Forward CV - {self.n_folds} folds\n"
             f"  OOF Sharpe   : {self.oof_sharpe_mean:+.3f} ± {self.oof_sharpe_std:.3f}\n"
             f"  OOF Accuracy : {self.oof_accuracy_mean:.3f} ± {self.oof_accuracy_std:.3f}\n"
             f"  OOF F1       : {self.oof_f1_mean:.3f} ± {self.oof_f1_std:.3f}"

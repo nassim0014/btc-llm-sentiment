@@ -1,5 +1,5 @@
 """
-BTC Sentiment-Driven LSTM Trading Pipeline — Streamlit Dashboard
+BTC Sentiment-Driven LSTM Trading Pipeline - Streamlit Dashboard
 
 Main entry point. Renders the Overview/Dashboard page with high-level metrics
 and provides navigation to the Phase 1 and Phase 2 deep-dive pages via the
@@ -349,7 +349,7 @@ else:
 # Strategy comparison table
 # ---------------------------------------------------------------------
 st.markdown("---")
-st.subheader("📊 Strategy Comparison — Phase 1 (LSTM Configs vs Buy & Hold)")
+st.subheader("📊 Strategy Comparison - Phase 1 (LSTM Configs vs Buy & Hold)")
 
 if fmc is not None and len(fmc) > 0:
     display_df = fmc.copy()
@@ -430,4 +430,4 @@ st.markdown(
     "📋 **Navigation:** Use the sidebar to explore **Phase 1** (data → sentiment → LSTM → backtest) "
     "and **Phase 2** (walk-forward CV → Optuna → risk-managed backtest → SHAP) deep-dives."
 )
-st.caption("BTC Sentiment-Driven LSTM Trading Pipeline — Built with Streamlit + Plotly")
+st.caption("BTC Sentiment-Driven LSTM Trading Pipeline - Built with Streamlit + Plotly")

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.6
-# BTC Sentiment-Driven LSTM Trading Pipeline — Streamlit dashboard image.
+# BTC Sentiment-Driven LSTM Trading Pipeline - Streamlit dashboard image.
 #
 # Multi-stage build: builder installs deps into a venv, runtime copies
 # only the venv + app code. Non-root user, slim base.

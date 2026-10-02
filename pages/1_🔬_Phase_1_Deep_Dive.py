@@ -1,5 +1,5 @@
 """
-Phase 1 Deep-Dive — Data, Sentiment, LSTM, Backtest
+Phase 1 Deep-Dive - Data, Sentiment, LSTM, Backtest
 
 Interactive visualizations for the Phase 1 pipeline:
   - Portfolio equity curves (Plotly line chart)
@@ -41,7 +41,7 @@ def load_csv(filename: str) -> pd.DataFrame | None:
         return None
 
 
-st.title("🔬 Phase 1 — Data → Sentiment → LSTM → Backtest")
+st.title("🔬 Phase 1 - Data → Sentiment → LSTM → Backtest")
 st.markdown("Deep-dive into the Phase 1 pipeline: 4 LSTM configurations vs Buy & Hold with threshold-optimized trading signals.")
 
 # ---------------------------------------------------------------------
@@ -163,4 +163,4 @@ else:
     st.warning("Model comparison data not available.")
 
 st.markdown("---")
-st.caption("Phase 1 — Data loading, LLM sentiment scoring, feature engineering, LSTM fine-tuning, and backtesting.")
+st.caption("Phase 1 - Data loading, LLM sentiment scoring, feature engineering, LSTM fine-tuning, and backtesting.")

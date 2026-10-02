@@ -23,7 +23,7 @@ INTERIM_DIR = ROOT / "notebooks" / "interim"
 OUTPUTS_DIR = ROOT / "outputs"
 AUDIT_DIR = ROOT / "audit"
 
-# Model artifact paths (checked in multiple locations for resilience —
+# Model artifact paths (checked in multiple locations for resilience -
 # Streamlit Cloud vs. local vs. Colab).
 MODEL_PATHS = [
     INTERIM_DIR / "best_optuna_model.keras",
@@ -38,7 +38,7 @@ BUNDLE_PATHS = [
 # ────────────────────────────────────────────────────────────
 # Data sources
 # ────────────────────────────────────────────────────────────
-# Hosted on GitHub raw — used by the Streamlit app, the sentiment alert
+# Hosted on GitHub raw - used by the Streamlit app, the sentiment alert
 # cron job, and the pipeline runner when the local file is missing.
 NEWS_URL = "https://raw.githubusercontent.com/nassim0014/btc-llm-sentiment/main/Data/cryptonews.csv"
 
@@ -52,7 +52,7 @@ REQUEST_TIMEOUT_SECONDS = 60
 REQUEST_MAX_RETRIES = 3
 REQUEST_BACKOFF_FACTOR = 1.5  # seconds, multiplied per retry
 
-# HTTP User-Agent — some CDNs block the python-requests default UA.
+# HTTP User-Agent - some CDNs block the python-requests default UA.
 USER_AGENT = "btc-llm-sentiment/1.0 (+https://github.com/nassim0014/btc-llm-sentiment)"
 
 # ────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ USER_AGENT = "btc-llm-sentiment/1.0 (+https://github.com/nassim0014/btc-llm-sent
 # ────────────────────────────────────────────────────────────
 # These SHA256 hashes are computed from the committed artifacts.
 # safe_load_bundle() refuses to unpickle if the on-disk file's hash
-# does not match — defense against a compromised repo shipping a
+# does not match - defense against a compromised repo shipping a
 # malicious pickle that executes arbitrary code on load.
 #
 # To regenerate after a model retrain:
@@ -83,7 +83,7 @@ ALERT_THRESHOLDS = {
 # The alert cron runs daily against a static news CSV that is not guaranteed
 # to have been refreshed recently (see sentiment_alert.py's staleness guard).
 # If the newest headline is older than this many days, evaluate_alert() fires
-# a STALE_DATA alert instead of a directional one — a confident bullish/
+# a STALE_DATA alert instead of a directional one - a confident bullish/
 # bearish verdict computed from days-old news is not a live trading signal.
 ALERT_MAX_SOURCE_AGE_DAYS = 2
 

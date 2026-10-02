@@ -103,7 +103,7 @@ def test_safe_load_bundle_rejects_missing_file(tmp_path):
 
 
 # ────────────────────────────────────────────────────────────
-# 3. Restricted unpickler — malicious pickle rejection
+# 3. Restricted unpickler - malicious pickle rejection
 # ────────────────────────────────────────────────────────────
 
 

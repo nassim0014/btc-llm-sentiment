@@ -1,5 +1,5 @@
 """
-Backtest Simulator — Interactive parameter tuning.
+Backtest Simulator - Interactive parameter tuning.
 
 Lets users adjust Kelly fraction, volatility targeting, and drawdown circuit
 breaker parameters interactively and see how the equity curve changes in
@@ -451,4 +451,4 @@ st.plotly_chart(fig, use_container_width=True)
 st.dataframe(sens_df.round(4), use_container_width=True, hide_index=True)
 
 st.markdown("---")
-st.caption("🎛️ Backtest Simulator — Interactive parameter tuning using the same LSTM probabilities as the pipeline. The 'Original (Pipeline)' line shows the default parameters for comparison.")
+st.caption("🎛️ Backtest Simulator - Interactive parameter tuning using the same LSTM probabilities as the pipeline. The 'Original (Pipeline)' line shows the default parameters for comparison.")

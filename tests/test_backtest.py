@@ -34,13 +34,13 @@ def synthetic_prob_and_close() -> tuple[np.ndarray, np.ndarray]:
 
 @pytest.fixture
 def monotonic_close() -> np.ndarray:
-    """Strictly increasing close prices — no drawdowns."""
+    """Strictly increasing close prices - no drawdowns."""
     return np.linspace(100, 200, 50)
 
 
 @pytest.fixture
 def drawdown_close() -> np.ndarray:
-    """Close that drops 25% from the start — guaranteed equity drawdown > 15%
+    """Close that drops 25% from the start - guaranteed equity drawdown > 15%
     when fully invested, because there's no prior gain to buffer against."""
     return np.linspace(100, 75, 40)  # -25% over 40 days, monotonic decline
 
@@ -224,7 +224,7 @@ class TestEvaluateOofMetrics:
         assert metrics["f1"] == 0.0
 
     def test_single_element_input_does_not_crash(self):
-        """Single-element input should not raise — degenerate but valid."""
+        """Single-element input should not raise - degenerate but valid."""
         y_true = np.array([1])
         y_prob = np.array([0.8])
         close = np.array([100.0, 101.0])
@@ -236,7 +236,7 @@ class TestEvaluateOofMetrics:
         """When signal and rets lengths mismatch, fee adjustment is skipped."""
         y_true = np.array([1, 0, 1, 0, 1])
         y_prob = np.array([0.9, 0.1, 0.8, 0.2, 0.7])
-        # close has 3 elements — len(rets) = 2, len(signal) = 5
+        # close has 3 elements - len(rets) = 2, len(signal) = 5
         close = np.array([100.0, 101.0, 102.0])
         metrics = evaluate_oof_metrics(y_true, y_prob, close)
         # Should not crash, should return valid metrics

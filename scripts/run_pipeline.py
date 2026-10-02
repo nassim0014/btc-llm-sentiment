@@ -39,7 +39,7 @@ import yfinance as yf
 from tqdm.auto import tqdm
 
 # Selectively silence noisy upstream warnings (TF deprecation notices,
-# pandas chained-assignment). Do NOT use filterwarnings("ignore") — that
+# pandas chained-assignment). Do NOT use filterwarnings("ignore") - that
 # hides security and correctness warnings too.
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="tensorflow")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="keras")
@@ -70,11 +70,11 @@ np.random.seed(RANDOM_STATE)
 
 
 # ---------------------------------------------------------------------
-# Stage 1 — Fetch news
+# Stage 1 - Fetch news
 # ---------------------------------------------------------------------
 def fetch_news() -> pd.DataFrame:
     print(f"\n[Stage 1] Fetching news from {NEWS_URL} ...")
-    # Retry with exponential backoff — GitHub raw CDN occasionally returns 503.
+    # Retry with exponential backoff - GitHub raw CDN occasionally returns 503.
     last_err = None
     df = None
     for attempt in range(3):
@@ -121,7 +121,7 @@ def fetch_news() -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------
-# Stage 2 — Fetch BTC + apply MultiIndex bug fix
+# Stage 2 - Fetch BTC + apply MultiIndex bug fix
 # ---------------------------------------------------------------------
 def fetch_btc() -> pd.DataFrame:
     print(f"\n[Stage 2] Fetching {BTC_TICKER} via yfinance ...")
@@ -138,7 +138,7 @@ def fetch_btc() -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------
-# Stage 3 — LLM sentiment scoring
+# Stage 3 - LLM sentiment scoring
 # ---------------------------------------------------------------------
 def score_with_llm(news: pd.DataFrame, quick: bool = False, use_precomputed: bool = False) -> pd.DataFrame:
     """Score headlines with HuggingFace FinBERT.
@@ -151,7 +151,7 @@ def score_with_llm(news: pd.DataFrame, quick: bool = False, use_precomputed: boo
     print("\n[Stage 3] Scoring headlines ...")
     if use_precomputed:
         print("  -> using pre-computed TextBlob sentiment (use_precomputed=True)")
-        print("     (set use_precomputed=False to run HuggingFace FinBERT — ~2h on CPU)")
+        print("     (set use_precomputed=False to run HuggingFace FinBERT - ~2h on CPU)")
         news = news.copy()
         # Map TextBlob polarity [-1, 1] to LLM-style score [-1, 1]
         news["llm_sentiment"] = news["sentiment_polarity"].astype(float)
@@ -178,8 +178,8 @@ def score_with_llm(news: pd.DataFrame, quick: bool = False, use_precomputed: boo
             from src.inference.finbert import DEFAULT_MODELS as _HF_MODELS
             _pinned = dict(_HF_MODELS)
             _rev = _pinned.get(name, "main")
-            tok = AutoTokenizer.from_pretrained(name, revision=_rev)  # nosec B615 — revision pinned
-            mdl = AutoModelForSequenceClassification.from_pretrained(name, revision=_rev)  # nosec B615 — revision pinned
+            tok = AutoTokenizer.from_pretrained(name, revision=_rev)  # nosec B615 - revision pinned
+            mdl = AutoModelForSequenceClassification.from_pretrained(name, revision=_rev)  # nosec B615 - revision pinned
             pipe = pipeline("sentiment-analysis", model=mdl, tokenizer=tok, device=DEVICE,
                             truncation=True, max_length=512)
             print(f"  -> loaded {name}")
@@ -221,7 +221,7 @@ def score_with_llm(news: pd.DataFrame, quick: bool = False, use_precomputed: boo
 
 
 # ---------------------------------------------------------------------
-# Stage 4 — Aggregate + merge + feature engineering
+# Stage 4 - Aggregate + merge + feature engineering
 # ---------------------------------------------------------------------
 def build_features(news: pd.DataFrame, btc: pd.DataFrame) -> tuple:
     print("\n[Stage 4] Building feature matrix ...")
@@ -327,7 +327,7 @@ def build_features(news: pd.DataFrame, btc: pd.DataFrame) -> tuple:
 
 
 # ---------------------------------------------------------------------
-# Stage 5 — Train LSTM configs
+# Stage 5 - Train LSTM configs
 # ---------------------------------------------------------------------
 def train_lstms(bundle: dict) -> dict:
     print("\n[Stage 5] Training 4 LSTM configs with class weighting + early stopping ...")
@@ -407,7 +407,7 @@ def train_lstms(bundle: dict) -> dict:
 
 
 # ---------------------------------------------------------------------
-# Stage 6 — Threshold optimizer + backtest
+# Stage 6 - Threshold optimizer + backtest
 # ---------------------------------------------------------------------
 def backtest(prob, close, threshold, fee=TRADING_FEE):
     signal = (prob >= threshold).astype(int)
@@ -588,12 +588,12 @@ def save_summary_svg(results, preds, test_close, test_dates, thresholds):
     ax.plot(thresholds_scan, sharpes_scan, marker="o", color="#0f766e", lw=2)
     best_t = thresholds[best_cfg]
     ax.axvline(best_t, ls="--", c="red", alpha=0.7, label=f"Selected threshold = {best_t:.2f}")
-    ax.set_title(f"Threshold Sensitivity — {best_cfg}", fontsize=12, fontweight="bold")
+    ax.set_title(f"Threshold Sensitivity - {best_cfg}", fontsize=12, fontweight="bold")
     ax.set_xlabel("Probability threshold")
     ax.set_ylabel("Sharpe ratio")
     ax.legend()
 
-    fig.suptitle("BTC Sentiment-Driven LSTM — Pipeline Summary",
+    fig.suptitle("BTC Sentiment-Driven LSTM - Pipeline Summary",
                  fontsize=15, fontweight="bold", y=1.005)
     plt.savefig(OUTPUTS / "complete_pipeline_summary.svg", bbox_inches="tight", facecolor="white")
     plt.savefig(OUTPUTS / "complete_pipeline_summary.png", dpi=120, bbox_inches="tight", facecolor="white")
@@ -602,7 +602,7 @@ def save_summary_svg(results, preds, test_close, test_dates, thresholds):
 
 def main(quick: bool = False, use_precomputed: bool = False) -> None:
     print("=" * 70)
-    print("BTC Sentiment-Driven LSTM Trading Pipeline — end-to-end runner")
+    print("BTC Sentiment-Driven LSTM Trading Pipeline - end-to-end runner")
     print(f"  quick             : {quick}")
     print(f"  use_precomputed   : {use_precomputed}")
     print("=" * 70)

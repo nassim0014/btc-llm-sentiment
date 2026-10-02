@@ -1,4 +1,4 @@
-"""Tests for src/phase1_display.py — extracted from pages/1 (item 5)."""
+"""Tests for src/phase1_display.py - extracted from pages/1 (item 5)."""
 from __future__ import annotations
 
 import pandas as pd

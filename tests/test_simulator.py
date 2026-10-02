@@ -1,4 +1,4 @@
-"""Tests for src/backtest/simulator.py — extracted from the Streamlit page (item 5).
+"""Tests for src/backtest/simulator.py - extracted from the Streamlit page (item 5).
 
 Tests the run_backtest function with synthetic data to verify the core
 math: position sizing, vol-targeting, circuit breaker, and metrics.

@@ -1,15 +1,15 @@
 # Makefile for the BTC Sentiment-Driven LSTM Trading Pipeline.
 #
 # Common targets:
-#   make setup   — create a virtualenv and install all dependencies
-#   make run     — execute the Phase 1 master pipeline locally (fast path)
-#   make phase2  — execute the Phase 2 advanced pipeline locally (Optuna + Risk + SHAP)
-#   make test    — run the pytest suite
-#   make lint    — quick syntax check on every Python file in src/ and scripts/
-#   make ruff    — run ruff linter (error-only rules, see pyproject.toml)
-#   make check   — run tests + ruff (the full local CI gate)
-#   make clean   — remove the venv and interim artifacts
-#   make help    — print this help
+#   make setup   - create a virtualenv and install all dependencies
+#   make run     - execute the Phase 1 master pipeline locally (fast path)
+#   make phase2  - execute the Phase 2 advanced pipeline locally (Optuna + Risk + SHAP)
+#   make test    - run the pytest suite
+#   make lint    - quick syntax check on every Python file in src/ and scripts/
+#   make ruff    - run ruff linter (error-only rules, see pyproject.toml)
+#   make check   - run tests + ruff (the full local CI gate)
+#   make clean   - remove the venv and interim artifacts
+#   make help    - print this help
 #
 # Usage:
 #   make setup
@@ -23,15 +23,15 @@ PY     := $(VENV)/bin/python
 .PHONY: help setup run phase2 test lint clean
 
 help:
-        @echo "BTC Sentiment-Driven LSTM Trading Pipeline — Makefile"
+        @echo "BTC Sentiment-Driven LSTM Trading Pipeline - Makefile"
         @echo ""
         @echo "Targets:"
-        @echo "  make setup   — create venv at $(VENV) and install requirements.txt"
-        @echo "  make run     — run the Phase 1 master pipeline (TextBlob sentiment, fast)"
-        @echo "  make phase2  — run the Phase 2 advanced pipeline (Optuna + Risk + SHAP)"
-        @echo "  make test    — run the pytest suite in tests/"
-        @echo "  make lint    — syntax-check all Python files in src/ and scripts/"
-        @echo "  make clean   — remove venv and interim artifacts"
+        @echo "  make setup   - create venv at $(VENV) and install requirements.txt"
+        @echo "  make run     - run the Phase 1 master pipeline (TextBlob sentiment, fast)"
+        @echo "  make phase2  - run the Phase 2 advanced pipeline (Optuna + Risk + SHAP)"
+        @echo "  make test    - run the pytest suite in tests/"
+        @echo "  make lint    - syntax-check all Python files in src/ and scripts/"
+        @echo "  make clean   - remove venv and interim artifacts"
         @echo ""
         @echo "Typical workflow:"
         @echo "  make setup && make run"

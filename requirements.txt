@@ -1,4 +1,4 @@
-# BTC Sentiment-Driven LSTM Trading Pipeline — Python dependencies
+# BTC Sentiment-Driven LSTM Trading Pipeline - Python dependencies
 #
 # PINNED for ML reproducibility. Every dependency is pinned to an exact
 # version so that `pip install -r requirements.txt` produces the same

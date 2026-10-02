@@ -1,4 +1,4 @@
-"""Root-level pytest configuration — shared fixtures across all test modules.
+"""Root-level pytest configuration - shared fixtures across all test modules.
 
 Adds the repo root to sys.path so `src/` is importable without a
 package install, and provides a seeded random fixture for reproducible

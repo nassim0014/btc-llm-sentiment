@@ -6,7 +6,7 @@ across 5 expanding-window folds. This ensures the selected hyperparameters
 generalize across market regimes, not just a single train/val split.
 
 Uses Optuna's `MedianPruner` to aggressively prune underperforming trials
-after each fold — if the cumulative OOF Sharpe is below the median of
+after each fold - if the cumulative OOF Sharpe is below the median of
 completed trials at the same fold step, the trial is killed early.
 
 Public API
@@ -70,7 +70,7 @@ def sample_hyperparameters(trial: optuna.Trial) -> dict:
 
 
 # ---------------------------------------------------------------------
-# Objective — walk-forward CV with per-fold pruning
+# Objective - walk-forward CV with per-fold pruning
 # ---------------------------------------------------------------------
 def optuna_objective(
     trial: optuna.Trial,
@@ -283,7 +283,7 @@ def run_optuna_search(
     best_value = best.value
 
     print(f"\n{'='*60}")
-    print(f"Optuna search complete — {len(study.trials)} trials")
+    print(f"Optuna search complete - {len(study.trials)} trials")
     print(f"Best OOF Sharpe: {best_value:+.4f}")
     print(f"Best params: {best_params}")
     print(f"{'='*60}")
