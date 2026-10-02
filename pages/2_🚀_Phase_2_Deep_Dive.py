@@ -1,5 +1,5 @@
 """
-Phase 2 Deep-Dive — Walk-Forward CV, Optuna, Risk Management, SHAP
+Phase 2 Deep-Dive - Walk-Forward CV, Optuna, Risk Management, SHAP
 
 Interactive visualizations for the Phase 2 pipeline:
   - Risk-managed equity curve with position sizing (Plotly)
@@ -50,7 +50,7 @@ def load_json(filename: str) -> dict | None:
         return None
 
 
-st.title("🚀 Phase 2 — Advanced Upgrades")
+st.title("🚀 Phase 2 - Advanced Upgrades")
 st.markdown("Walk-Forward CV → Optuna HPO → Risk-Managed Backtest → SHAP Interpretability")
 
 # ---------------------------------------------------------------------
@@ -66,7 +66,7 @@ best_params = load_json("best_optuna_params.json")
 # Risk-managed equity curve
 # ---------------------------------------------------------------------
 st.markdown("---")
-st.subheader("🛡️ Risk-Managed Backtest — Equity Curve & Position Sizing")
+st.subheader("🛡️ Risk-Managed Backtest - Equity Curve & Position Sizing")
 
 if equity_curve is not None and len(equity_curve) > 0:
     equity_curve["date"] = pd.to_datetime(equity_curve["date"])
@@ -142,7 +142,7 @@ else:
 # Strategy comparison
 # ---------------------------------------------------------------------
 st.markdown("---")
-st.subheader("📊 Strategy Comparison — Simple vs Risk-Managed vs Buy & Hold")
+st.subheader("📊 Strategy Comparison - Simple vs Risk-Managed vs Buy & Hold")
 
 if strategy_cmp is not None and len(strategy_cmp) > 0:
     col1, col2 = st.columns(2)
@@ -276,4 +276,4 @@ else:
     st.warning("SHAP feature importance data not available.")
 
 st.markdown("---")
-st.caption("Phase 2 — Walk-forward CV, Optuna HPO, Kelly + vol-targeting + DD circuit breaker, SHAP interpretability.")
+st.caption("Phase 2 - Walk-forward CV, Optuna HPO, Kelly + vol-targeting + DD circuit breaker, SHAP interpretability.")

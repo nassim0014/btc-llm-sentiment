@@ -1,4 +1,4 @@
-"""Tests for src/live_features.py — extracted from pages/3 (item 5)."""
+"""Tests for src/live_features.py - extracted from pages/3 (item 5)."""
 from __future__ import annotations
 
 import numpy as np

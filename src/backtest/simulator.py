@@ -1,4 +1,4 @@
-"""Interactive backtest simulator — extracted from pages/4_🎛️_Backtest_Simulator.py (item 5).
+"""Interactive backtest simulator - extracted from pages/4_🎛️_Backtest_Simulator.py (item 5).
 
 This is the same logic as `src.backtest.risk_managed.risk_managed_backtest`
 but with user-adjustable parameters for the Streamlit simulator. Extracted

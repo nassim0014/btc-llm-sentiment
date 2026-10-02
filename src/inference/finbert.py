@@ -1,5 +1,5 @@
 """
-FinBERT sentiment inference — optimized for Colab T4 GPU.
+FinBERT sentiment inference - optimized for Colab T4 GPU.
 
 Public API
 ----------
@@ -10,7 +10,7 @@ Public API
 T4 optimization
 ---------------
 - batch_size=128 (T4 16GB VRAM comfortably fits FinBERT at max_length=512)
-- fp16 inference via torch.cuda.amp.autocast() — ~2x speedup, negligible
+- fp16 inference via torch.cuda.amp.autocast() - ~2x speedup, negligible
   accuracy loss for sentiment classification
 - max_length=512 (FinBERT's full context window)
 
@@ -18,7 +18,7 @@ Parquet caching
 ---------------
 - `cached_score_with_finbert` checks Data/cryptonews_scored.parquet before
   re-running inference. The cache is keyed on a SHA256 hash of the source
-  CSV (cryptonews.csv) — if the source changes, the cache is invalidated
+  CSV (cryptonews.csv) - if the source changes, the cache is invalidated
   automatically and a fresh inference run is triggered.
 
 Example
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------
 # Default model candidates (loaded in order)
 # ----------------------------------------------------------------------
-# Each entry is (model_id, revision_sha) — pinning the revision protects
+# Each entry is (model_id, revision_sha) - pinning the revision protects
 # against supply-chain attacks where a model author (or a compromised HF
 # account) pushes a malicious update. To get the latest revision:
 #   curl -s https://huggingface.co/api/models/<model_id> | jq -r .sha
@@ -137,7 +137,7 @@ def score_with_finbert(
 
     # ---- Model loading with fallback ----
     # `candidates` is a list of (model_name, revision) tuples. The revision
-    # is a pinned git SHA on the HuggingFace Hub — defense against supply-
+    # is a pinned git SHA on the HuggingFace Hub - defense against supply-
     # chain attacks (model author pushes a malicious update).
     if isinstance(model_name, str):
         # Caller passed a bare model name; look up the pinned revision
@@ -162,8 +162,8 @@ def score_with_finbert(
     for name, revision in candidates:
         try:
             logger.info(f"Loading {name} @ {revision[:8]} ...")
-            tok = AutoTokenizer.from_pretrained(name, revision=revision)  # nosec B615 — revision pinned
-            mdl = AutoModelForSequenceClassification.from_pretrained(name, revision=revision)  # nosec B615 — revision pinned
+            tok = AutoTokenizer.from_pretrained(name, revision=revision)  # nosec B615 - revision pinned
+            mdl = AutoModelForSequenceClassification.from_pretrained(name, revision=revision)  # nosec B615 - revision pinned
             if device == 0:
                 mdl = mdl.to(device)
                 if use_fp16:

@@ -33,7 +33,7 @@ Thumbs.db
 # HuggingFace model cache
 .cache/
 
-# Secrets / local env — this repo is PUBLIC, keep credentials out of git.
+# Secrets / local env - this repo is PUBLIC, keep credentials out of git.
 # Example templates are allowlisted so they can still be committed.
 .env
 .env.*

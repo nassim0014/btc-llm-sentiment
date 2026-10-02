@@ -1,4 +1,4 @@
-# pyproject.toml — consolidated project configuration.
+# pyproject.toml - consolidated project configuration.
 #
 # Migrated from pytest.ini and ruff.toml so there is one config file
 # (backlog item 6). Both pytest and ruff natively read pyproject.toml.

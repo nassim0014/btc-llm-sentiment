@@ -57,15 +57,15 @@ A reproducible end-to-end pipeline combining natural-language sentiment signals 
 
 ## Quick Start
 
-### 🚀 Live Dashboard (Streamlit)
+### Live Dashboard (Streamlit)
 
 The repository includes an interactive **Streamlit web app** that visualizes the pipeline results with interactive Plotly charts. The app has five pages:
 
-1. **Overview/Dashboard** — live BTC price ticker, live news sentiment ticker, high-level KPIs (Sharpe, drawdown, Optuna results) + strategy comparison tables
-2. **Phase 1 Deep-Dive** — portfolio equity curves, trading metrics bar charts, model comparison
-3. **Phase 2 Deep-Dive** — risk-managed equity curve with position sizing, Optuna hyperparameters, SHAP feature importance
-4. **Live Predictions** — fetches today's BTC price + news, runs the trained LSTM model, displays a live up/down prediction with confidence gauge
-5. **Backtest Simulator** — interactive sliders for Kelly fraction, vol-target, drawdown breaker, and threshold; real-time equity curve updates + parameter sensitivity analysis
+1. **Overview/Dashboard** - live BTC price ticker, live news sentiment ticker, high-level KPIs (Sharpe, drawdown, Optuna results) + strategy comparison tables
+2. **Phase 1 Deep-Dive** - portfolio equity curves, trading metrics bar charts, model comparison
+3. **Phase 2 Deep-Dive** - risk-managed equity curve with position sizing, Optuna hyperparameters, SHAP feature importance
+4. **Live Predictions** - fetches today's BTC price + news, runs the trained LSTM model, displays a live up/down prediction with confidence gauge
+5. **Backtest Simulator** - interactive sliders for Kelly fraction, vol-target, drawdown breaker, and threshold; real-time equity curve updates + parameter sensitivity analysis
 
 **Run locally:**
 ```bash
@@ -79,11 +79,11 @@ streamlit run streamlit_app.py
 3. Connect the repo → select `streamlit_app.py` as the entry point
 4. The app deploys automatically and gets a public URL
 
-> **Note:** The app reads from `outputs/` — run the pipeline first (via Colab or `make run && make phase2`) to populate the CSVs the dashboard visualizes.
+> **Note:** The app reads from `outputs/` - run the pipeline first (via Colab or `make run && make phase2`) to populate the CSVs the dashboard visualizes.
 
-### Path A — Google Colab (zero setup, recommended)
+### Path A - Google Colab (zero setup, recommended)
 
-Click a badge below to open a Master Pipeline notebook in Colab. The first cell auto-clones the repo, installs dependencies, and sets the working directory — no manual setup required.
+Click a badge below to open a Master Pipeline notebook in Colab. The first cell auto-clones the repo, installs dependencies, and sets the working directory - no manual setup required.
 
 | Notebook | What it runs | Runtime | Open in Colab |
 |----------|--------------|---------|---------------|
@@ -95,7 +95,7 @@ Click a badge below to open a Master Pipeline notebook in Colab. The first cell 
 2. Open `Master_Pipeline_Phase2.ipynb` in Colab → Run all → get Phase 2 outputs in 15-25 min.
 3. Set `SAVE_TO_DRIVE = True` at the top of either notebook to persist outputs to Google Drive across sessions.
 
-### Path B — Local (clone + venv)
+### Path B - Local (clone + venv)
 
 ```bash
 git clone https://github.com/nassim0014/btc-llm-sentiment.git
@@ -121,29 +121,29 @@ python3 scripts/run_pipeline.py --use-precomputed
 This pipeline goes beyond a basic LSTM classifier. Five production-grade upgrades make it a real quant research artifact:
 
 ### 1. Walk-Forward Cross-Validation
-**`src/cv/walk_forward.py`** — 5 expanding-window folds (400→460→520→580→640 training days, 60-day validation windows). Strict temporal ordering — no look-ahead leakage. Logs per-fold OOF metrics (Sharpe, Accuracy, F1, AUC, Max DD). The std of OOF Sharpe is the key regime-stability indicator.
+**`src/cv/walk_forward.py`** - 5 expanding-window folds (400→460→520→580→640 training days, 60-day validation windows). Strict temporal ordering - no look-ahead leakage. Logs per-fold OOF metrics (Sharpe, Accuracy, F1, AUC, Max DD). The std of OOF Sharpe is the key regime-stability indicator.
 
 ### 2. Optuna Hyperparameter Optimization
-**`src/cv/optuna_search.py`** — replaces the manual 4-config grid with Optuna random search:
+**`src/cv/optuna_search.py`** - replaces the manual 4-config grid with Optuna random search:
 - **Search space**: `lr` (log-uniform 1e-4 to 1e-2), `units` (32/64/128), `dropout` (0.0/0.2/0.4), `num_layers` (1/2)
 - **Objective**: maximize mean OOF Sharpe across 5 walk-forward folds
 - **Pruning**: `MedianPruner` kills trials whose cumulative OOF Sharpe is below the median after fold 2
-- **Best result**: `lr=5.6e-4, units=32, dropout=0.0, num_layers=1` — OOF Sharpe +1.43
+- **Best result**: `lr=5.6e-4, units=32, dropout=0.0, num_layers=1` - OOF Sharpe +1.43
 
 ### 3. FinBERT Inference with T4 Optimization
-**`src/inference/finbert.py`** — true HuggingFace FinBERT scoring, not a TextBlob fallback:
+**`src/inference/finbert.py`** - true HuggingFace FinBERT scoring, not a TextBlob fallback:
 - **T4-optimized**: `batch_size=128`, `max_length=512`, `fp16` via `torch.cuda.amp.autocast()` (~2× speedup)
 - **Parquet caching**: SHA256 hash of the source CSV stored as metadata. Cache auto-invalidates if the source changes. Cache hit returns in <1 sec; cache miss runs full FinBERT inference (~5-7 min on T4).
 - **Fallback chain**: ProsusAI/finbert → distilbert-base-uncased-finetuned-sst-2-english
 
 ### 4. Risk-Managed Backtester
-**`src/backtest/risk_managed.py`** — replaces 100% all-in/all-out with three risk layers:
+**`src/backtest/risk_managed.py`** - replaces 100% all-in/all-out with three risk layers:
 1. **Kelly Fraction Sizing**: `position = (prob - threshold) / (1 - threshold)`, capped at [0, 1]. Model confidence directly scales position size.
 2. **Volatility Targeting**: scale inversely to 20-day realized vol → target 20% annualized volatility.
 3. **Drawdown Circuit Breaker**: flatten all positions and halt trading if DD ≤ -15%.
 
 ### 5. SHAP Interpretability
-**`src/interpretability/shap_explainer.py`** — explains what drives the LSTM's predictions:
+**`src/interpretability/shap_explainer.py`** - explains what drives the LSTM's predictions:
 - Tries `DeepExplainer` → `GradientExplainer` → `KernelExplainer` (KernelExplainer used on TF 2.21)
 - **Global beeswarm summary**: shows feature importance + direction of impact
 - **Regime comparison**: side-by-side beeswarms for high-vol vs low-vol days (split at median 20-day realized vol)
@@ -217,9 +217,9 @@ flowchart LR
 | Risk management    | `src.backtest.risk_managed` (Kelly + vol-target + DD breaker)| 2    |
 | Interpretability   | `shap` (KernelExplainer with DeepExplainer fallback)        | 2     |
 | Visualization      | `matplotlib`, `seaborn`                                     | 1 + 2 |
-| Interactive dashboard | `streamlit`, `plotly` (dark mode, multi-page)            | —     |
-| Testing            | `pytest` (15 unit tests)                                    | —     |
-| CI/CD              | GitHub Actions (Python 3.11 + 3.12 matrix)                  | —     |
+| Interactive dashboard | `streamlit`, `plotly` (dark mode, multi-page)            | -     |
+| Testing            | `pytest` (15 unit tests)                                    | -     |
+| CI/CD              | GitHub Actions (Python 3.11 + 3.12 matrix)                  | -     |
 
 ---
 
@@ -292,15 +292,15 @@ btc-llm-sentiment/
 
 ## Backtest Results
 
-### Phase 2: Risk-Managed vs Simple vs Buy & Hold (Test Window: Sep–Dec 2024)
+### Phase 2: Risk-Managed vs Simple vs Buy & Hold (Test Window: Sep-Dec 2024)
 
 | Strategy                        | Final Value | Sharpe  | Sortino | Max DD  | Win Rate | Trades | Circuit Breaker |
 |---------------------------------|------------:|--------:|--------:|--------:|---------:|-------:|:---------------:|
-| Simple (all-in/out)             | 1.3630      | 2.39    | —       | -8.60%  | —        | 10     | No              |
+| Simple (all-in/out)             | 1.3630      | 2.39    | -       | -8.60%  | -        | 10     | No              |
 | **Risk-Managed (Kelly+Vol+DD)** | 0.9995      | 1.89    | 2.71    | -0.99%  | 30.91%   | 51     | No              |
 | Buy & Hold                      | 1.6156      | 2.96    | 5.66    | -12.72% | 54.55%   | 1      | No              |
 
-**Key insight:** The Optuna-tuned model produces low-confidence probabilities (mean 0.514, std 0.054), so Kelly sizing correctly takes minimal risk (avg position 2.65%). The risk-managed strategy achieves a near-zero drawdown (-0.99%) at the cost of lower returns — exactly the behavior you want when the model isn't confident.
+**Key insight:** The Optuna-tuned model produces low-confidence probabilities (mean 0.514, std 0.054), so Kelly sizing correctly takes minimal risk (avg position 2.65%). The risk-managed strategy achieves a near-zero drawdown (-0.99%) at the cost of lower returns - exactly the behavior you want when the model isn't confident.
 
 ### Phase 1: LSTM Config Comparison (Phase 1 baseline)
 
@@ -337,7 +337,7 @@ See `outputs/shap_summary.png` (global beeswarm) and `outputs/shap_regime_compar
 
 ## Google Colab Workflow
 
-### ⚠️ Colab Session Limits — Read First
+### ️ Colab Session Limits - Read First
 
 Google Colab enforces two hard constraints:
 
@@ -346,7 +346,7 @@ Google Colab enforces two hard constraints:
 
 ### Recommended Execution Flows
 
-**Flow A — 1-Click Master Pipelines (recommended):**
+**Flow A - 1-Click Master Pipelines (recommended):**
 - **Phase 1:** Open `notebooks/Master_Pipeline.ipynb` → Run all. Executes Stages 1-5 in one session.
 - **Phase 2:** Open `notebooks/Master_Pipeline_Phase2.ipynb` → Run all. Executes Walk-Forward CV → Optuna → Risk-Managed Backtest → SHAP in one session.
 
@@ -355,8 +355,8 @@ Both notebooks have built-in memory cleanup between stages, so they won't hit OO
 > **💡 Cross-session persistence (Phase 1):** Set `SAVE_TO_DRIVE = True` at the top of `Master_Pipeline.ipynb` to mount Google Drive and persist all outputs (models, CSVs, PNGs) to `/content/drive/MyDrive/BTC_Sentiment_Project/outputs/`. Survives across Colab sessions. (Colab only; falls back to local paths if run outside Colab.)
 
 > **💡 Cross-session persistence + skip-compute (Phase 2):** `Master_Pipeline_Phase2.ipynb` adds two companion flags:
-> - **`SAVE_TO_DRIVE = True`** — same as Phase 1; redirects all outputs to Drive.
-> - **`LOAD_FROM_DRIVE = True`** — mounts Drive and **skips heavy compute** if artifacts already exist there:
+> - **`SAVE_TO_DRIVE = True`** - same as Phase 1; redirects all outputs to Drive.
+> - **`LOAD_FROM_DRIVE = True`** - mounts Drive and **skips heavy compute** if artifacts already exist there:
 >   - If `features_for_lstm.pkl` exists on Drive → load it, skip inline feature rebuild (~1 min saved)
 >   - If `best_optuna_params.json` exists on Drive → load params, skip Optuna search (~15-25 min saved)
 >   - If `best_optuna_model.keras` exists on Drive → load model, skip final training (~2-3 min saved)
@@ -365,9 +365,9 @@ Both notebooks have built-in memory cleanup between stages, so they won't hit OO
 > 1. First session: `SAVE_TO_DRIVE=True`, `LOAD_FROM_DRIVE=False` → run full pipeline, artifacts saved to Drive.
 > 2. Subsequent sessions: `SAVE_TO_DRIVE=True`, `LOAD_FROM_DRIVE=True` → skip Optuna + training, go straight to SHAP/backtest iteration.
 
-**Flow B — Step-by-step notebooks:** Open `notebooks/step_by_step/01_data_loading.ipynb` in Colab, run it, then open Notebooks 02-10 in the same session via File → Open. All interim artifacts persist as long as the session stays alive. Each notebook has a memory cleanup cell at the end (02 releases the LLM from VRAM; 04 clears the Keras session) so you won't hit OOM.
+**Flow B - Step-by-step notebooks:** Open `notebooks/step_by_step/01_data_loading.ipynb` in Colab, run it, then open Notebooks 02-10 in the same session via File → Open. All interim artifacts persist as long as the session stays alive. Each notebook has a memory cleanup cell at the end (02 releases the LLM from VRAM; 04 clears the Keras session) so you won't hit OOM.
 
-**Flow C — Local:** See [Local Reproducibility](#local-reproducibility) below.
+**Flow C - Local:** See [Local Reproducibility](#local-reproducibility) below.
 
 ---
 
@@ -398,7 +398,7 @@ python3 scripts/run_shap_analysis.py                      # Phase 2 SHAP
 
 ---
 
-## 📬 Sentiment Alert System
+## Sentiment Alert System
 
 The repository includes an automated sentiment alert system that monitors crypto news sentiment and sends notifications when thresholds are crossed.
 
@@ -470,7 +470,7 @@ pytest tests/ -v
 `.github/workflows/ci.yml` runs on every push and pull request:
 - **Matrix**: Python 3.11 + 3.12
 - **Jobs**: lint (ruff), SAST (bandit), pytest with coverage, pip-audit (blocking on main), gitleaks, trivy container scan, Docker build smoke test
-- **Lightweight**: test job only installs `numpy pandas scikit-learn pytest ruff bandit` (skips heavy ML deps — the test suite exercises pure-Python backtest + CV logic only)
+- **Lightweight**: test job only installs `numpy pandas scikit-learn pytest ruff bandit` (skips heavy ML deps - the test suite exercises pure-Python backtest + CV logic only)
 - **SARIF**: trivy + gitleaks results uploaded to the GitHub Security tab
 
 [![CI](https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nassim0014/btc-llm-sentiment/actions/workflows/ci.yml)
@@ -482,12 +482,12 @@ pytest tests/ -v
 This is an ML pipeline with an interactive Streamlit dashboard. The highest-risk surface is the **pickle deserialization of committed model artifacts** (the `.pkl` file that powers Live Predictions).
 
 **Mitigations in place:**
-- **SHA256 integrity verification** — `src/utils/safe_pickle.py` verifies the hash of `features_for_lstm.pkl` before loading. Hash is pinned in `src/config.py::BUNDLE_SHA256`. Updating requires a code change + PR review.
-- **Restricted unpickler** — only allows numpy arrays, sklearn `StandardScaler`, and built-in collections. Any other class import (e.g. `os.system`) is blocked.
-- **HuggingFace model revisions pinned** — `ProsusAI/finbert` and `distilbert` are loaded at pinned git SHAs to defend against supply-chain attacks on HF Hub.
-- **Dependency pinning** — all deps in `requirements.txt` pinned to exact versions for ML reproducibility.
-- **CI scanning** — `pip-audit` (blocking on main), `bandit` SAST, `gitleaks` secret scan, `trivy` container image scan. SARIF uploaded to GitHub Security tab.
-- **Supply-chain hygiene** — `sentiment_alert.yml` no longer auto-commits to main; alert logs are uploaded as workflow artifacts.
+- **SHA256 integrity verification** - `src/utils/safe_pickle.py` verifies the hash of `features_for_lstm.pkl` before loading. Hash is pinned in `src/config.py::BUNDLE_SHA256`. Updating requires a code change + PR review.
+- **Restricted unpickler** - only allows numpy arrays, sklearn `StandardScaler`, and built-in collections. Any other class import (e.g. `os.system`) is blocked.
+- **HuggingFace model revisions pinned** - `ProsusAI/finbert` and `distilbert` are loaded at pinned git SHAs to defend against supply-chain attacks on HF Hub.
+- **Dependency pinning** - all deps in `requirements.txt` pinned to exact versions for ML reproducibility.
+- **CI scanning** - `pip-audit` (blocking on main), `bandit` SAST, `gitleaks` secret scan, `trivy` container image scan. SARIF uploaded to GitHub Security tab.
+- **Supply-chain hygiene** - `sentiment_alert.yml` no longer auto-commits to main; alert logs are uploaded as workflow artifacts.
 
 See [`SECURITY.md`](./SECURITY.md) for the full policy and [`MODEL_CARD.md`](./MODEL_CARD.md) for ML model documentation.
 
@@ -495,14 +495,14 @@ See [`SECURITY.md`](./SECURITY.md) for the full policy and [`MODEL_CARD.md`](./M
 
 ## Roadmap
 
-- [x] ~~Walk-Forward CV (5 expanding folds)~~ — Phase 2 Step 1
-- [x] ~~FinBERT with T4 optimization + Parquet caching~~ — Phase 2 Step 2
-- [x] ~~Optuna hyperparameter search with MedianPruner~~ — Phase 2 Step 3
-- [x] ~~Risk-managed backtester (Kelly + vol-target + DD breaker)~~ — Phase 2 Step 4
-- [x] ~~SHAP interpretability with regime comparison~~ — Phase 2 Step 5
-- [x] ~~Colab memory management + Master Pipeline notebooks~~ — Colab hardening
-- [x] ~~Google Drive persistence + skip-compute (LOAD_FROM_DRIVE)~~ — Drive integration
-- [x] ~~Unit tests + CI workflow~~ — DevOps maturity
+- [x] ~~Walk-Forward CV (5 expanding folds)~~ - Phase 2 Step 1
+- [x] ~~FinBERT with T4 optimization + Parquet caching~~ - Phase 2 Step 2
+- [x] ~~Optuna hyperparameter search with MedianPruner~~ - Phase 2 Step 3
+- [x] ~~Risk-managed backtester (Kelly + vol-target + DD breaker)~~ - Phase 2 Step 4
+- [x] ~~SHAP interpretability with regime comparison~~ - Phase 2 Step 5
+- [x] ~~Colab memory management + Master Pipeline notebooks~~ - Colab hardening
+- [x] ~~Google Drive persistence + skip-compute (LOAD_FROM_DRIVE)~~ - Drive integration
+- [x] ~~Unit tests + CI workflow~~ - DevOps maturity
 - [ ] Live trading integration with Binance Testnet
 - [ ] Multi-asset extension (ETH, SOL)
 - [ ] Walk-forward optimization with refit frequency
@@ -512,7 +512,7 @@ See [`SECURITY.md`](./SECURITY.md) for the full policy and [`MODEL_CARD.md`](./M
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).
 
 ---
 

@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    # Import only for type hints — tensorflow is heavy and not needed at
+    # Import only for type hints - tensorflow is heavy and not needed at
     # import time. The actual model object is passed in by callers.
     import tensorflow as tf
 
@@ -300,7 +300,7 @@ def run_shap_analysis(
         test_data=test_x,
         feature_names=feature_names,
         output_path=output_dir / "shap_summary.png",
-        title="SHAP Feature Importance — Optuna-Tuned LSTM (Test Set)",
+        title="SHAP Feature Importance - Optuna-Tuned LSTM (Test Set)",
     )
 
     # 2. Regime comparison

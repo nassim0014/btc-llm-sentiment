@@ -1,5 +1,5 @@
 """
-Sentiment Alert System — Monitors crypto news sentiment and sends notifications
+Sentiment Alert System - Monitors crypto news sentiment and sends notifications
 when the sentiment score crosses defined thresholds.
 
 Alert types:
@@ -7,7 +7,7 @@ Alert types:
   - 🟡 Bearish: sentiment < -0.1
   - 🟢 Very Bullish: sentiment > 0.3
   - 📈 Bullish: sentiment > 0.1
-  - ⚠️ Stale Data: source news is older than ALERT_MAX_SOURCE_AGE_DAYS —
+  - ⚠️ Stale Data: source news is older than ALERT_MAX_SOURCE_AGE_DAYS -
     fires instead of any directional alert above, regardless of the
     computed sentiment value
 
@@ -116,7 +116,7 @@ def evaluate_alert(
 
     Before checking direction, checks whether the underlying news data is
     stale relative to `now`. The daily average is computed from whatever
-    headlines the source happens to contain — if the source hasn't been
+    headlines the source happens to contain - if the source hasn't been
     updated in days, a "very bullish" or "very bearish" verdict is not a
     live signal, it's the same number firing again. When `source_date` is
     older than `max_source_age_days`, this returns a STALE_DATA alert
@@ -135,7 +135,7 @@ def evaluate_alert(
                 "emoji": "⚠️",
                 "message": (
                     f"Sentiment source data is {age_days:.1f} days old "
-                    f"(source: {sentiment_data['source_date']}) — no directional "
+                    f"(source: {sentiment_data['source_date']}) - no directional "
                     f"alert fired."
                 ),
                 "sentiment": sentiment_data["daily_avg_sentiment"],
@@ -200,7 +200,7 @@ def send_email_alert(alert: dict) -> bool:
         msg["Subject"] = f"{alert['emoji']} BTC Sentiment Alert: {alert['level']}"
 
         text = f"""
-BTC Sentiment Alert — {alert['level']}
+BTC Sentiment Alert - {alert['level']}
 ========================================
 
 {alert['message']}
@@ -225,7 +225,7 @@ BTC Sentiment-Driven LSTM Pipeline
 <tr><td style="padding: 8px; border: 1px solid #ddd;">Alert time</td><td style="padding: 8px; border: 1px solid #ddd;">{alert['timestamp']}</td></tr>
 </table>
 <hr>
-<p style="color: #999; font-size: 12px;">BTC Sentiment-Driven LSTM Pipeline — Automated Alert System</p>
+<p style="color: #999; font-size: 12px;">BTC Sentiment-Driven LSTM Pipeline - Automated Alert System</p>
 </body></html>
         """
 
@@ -346,7 +346,7 @@ def log_alert(alert: dict, channels_sent: list[str]) -> None:
     ]
 
     file_exists = ALERT_LOG_PATH.exists()
-    # Ensure the audit directory exists before writing — without this, the
+    # Ensure the audit directory exists before writing - without this, the
     # first run on a fresh clone crashes with FileNotFoundError.
     ALERT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with ALERT_LOG_PATH.open("a", newline="") as f:
@@ -383,10 +383,10 @@ def main(dry_run: bool = False) -> None:
     alert = evaluate_alert(sentiment_data)
 
     if alert is None:
-        print("  No alert needed — sentiment is within normal range.")
+        print("  No alert needed - sentiment is within normal range.")
         return
 
-    print(f"  {alert['emoji']} ALERT: {alert['level']} — {alert['message']}")
+    print(f"  {alert['emoji']} ALERT: {alert['level']} - {alert['message']}")
 
     # Send notifications
     print("\n[3/3] Sending notifications ...")

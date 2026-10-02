@@ -1,9 +1,9 @@
-# Model Card — BTC Sentiment-Driven LSTM
+# Model Card - BTC Sentiment-Driven LSTM
 
 **Model name:** `best_optuna_model.keras`
 **Model type:** Stacked LSTM binary classifier (1-2 layers, 32-128 units)
 **Task:** Predict direction of BTC-USD 5-day forward return (up/down)
-**License:** MIT (code) — model weights inherit the repo license
+**License:** MIT (code) - model weights inherit the repo license
 
 ## Intended Use
 
@@ -16,7 +16,7 @@
 - **BTC-USD OHLCV:** yfinance, 2023-01-01 to 2024-12-31 (730 daily candles)
 - **Crypto news:** `Data/cryptonews.csv` (~10k headlines, 2021-2024)
 - **Sentiment scoring:** HuggingFace `ProsusAI/finbert` (3-class: positive/neutral/negative), cached to Parquet
-- **Feature engineering:** 23 features — technical (RSI, MACD, BB width, ATR, OBV), sentiment (daily mean/std/ momentum), calendar (day-of-week)
+- **Feature engineering:** 23 features - technical (RSI, MACD, BB width, ATR, OBV), sentiment (daily mean/std/ momentum), calendar (day-of-week)
 - **Label:** 1 if 5-day forward return > 0, else 0
 
 ## Evaluation
@@ -40,11 +40,11 @@
 
 ## Limitations
 
-1. **Small training window** — 2 years of daily data is very little for a deep learning model. Overfitting is a real risk; the walk-forward CV is the primary defense.
-2. **Sentiment model drift** — FinBERT was trained on English financial news. Crypto-specific slang ("diamond hands", "WAGMI") may be misclassified.
-3. **Transaction cost assumptions** — 0.1% per trade. Real-world slippage on BTC can be higher during volatility spikes.
-4. **No live trading validation** — Backtest results do not guarantee live performance. The model has never traded real capital.
-5. **Lookahead risk** — Feature engineering was carefully audited to use only information available at decision time (t-1), but users should re-verify before any live deployment.
+1. **Small training window** - 2 years of daily data is very little for a deep learning model. Overfitting is a real risk; the walk-forward CV is the primary defense.
+2. **Sentiment model drift** - FinBERT was trained on English financial news. Crypto-specific slang ("diamond hands", "WAGMI") may be misclassified.
+3. **Transaction cost assumptions** - 0.1% per trade. Real-world slippage on BTC can be higher during volatility spikes.
+4. **No live trading validation** - Backtest results do not guarantee live performance. The model has never traded real capital.
+5. **Lookahead risk** - Feature engineering was carefully audited to use only information available at decision time (t-1), but users should re-verify before any live deployment.
 
 ## Ethical Considerations
 

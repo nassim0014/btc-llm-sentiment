@@ -4542,7 +4542,7 @@ L 1281.692656 429.020574
 " style="fill: none; stroke: #cccccc; stroke-width: 1.25; stroke-linejoin: miter; stroke-linecap: square"/>
    </g>
    <g id="text_80">
-    <!-- Threshold Sensitivity — baseline -->
+    <!-- Threshold Sensitivity - baseline -->
     <g style="fill: #262626" transform="translate(885.6057 423.020574) scale(0.12 -0.12)">
      <defs>
       <path id="DejaVuSans-Bold-79" d="M 78 3500 
@@ -4706,7 +4706,7 @@ z
    </g>
   </g>
   <g id="text_82">
-   <!-- BTC Sentiment-Driven LSTM — Pipeline Summary -->
+   <!-- BTC Sentiment-Driven LSTM - Pipeline Summary -->
    <g style="fill: #262626" transform="translate(443.703276 18.597656) scale(0.15 -0.15)">
     <defs>
      <path id="DejaVuSans-Bold-42" d="M 2456 2859 

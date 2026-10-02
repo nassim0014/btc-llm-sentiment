@@ -1,5 +1,5 @@
 """
-Live Predictions — Fetch today's BTC price + news, run the trained LSTM model,
+Live Predictions - Fetch today's BTC price + news, run the trained LSTM model,
 and display a live up/down prediction.
 
 This page loads the saved Optuna-tuned LSTM model, fetches the latest BTC
@@ -8,7 +8,7 @@ and runs the model to produce a directional prediction for the next 5 days.
 
 If the model is not available (e.g., on Streamlit Cloud without the .keras
 file committed), the page still shows live BTC price, sentiment data, and
-feature engineering — but displays "Model Required" instead of the prediction.
+feature engineering - but displays "Model Required" instead of the prediction.
 """
 from __future__ import annotations
 
@@ -154,7 +154,7 @@ st.markdown("Fetches the latest BTC price + crypto news, engineers features, and
 st.markdown("---")
 
 # ---------------------------------------------------------------------
-# Check model availability (non-fatal — continue even if missing)
+# Check model availability (non-fatal - continue even if missing)
 # ---------------------------------------------------------------------
 model = load_lstm_model()
 bundle = load_feature_bundle()
@@ -168,7 +168,7 @@ if not model_available:
     - The model file (`best_optuna_model.keras`) is 122KB and should be committed to the repo
     - Place it at: `notebooks/interim/best_optuna_model.keras`
 
-    **Below:** Live BTC price, news sentiment, and feature engineering are still available —
+    **Below:** Live BTC price, news sentiment, and feature engineering are still available -
     only the final LSTM prediction requires the model.
     """)
     st.markdown("---")
@@ -297,10 +297,10 @@ if model_available:
         st.plotly_chart(fig, use_container_width=True)
 
 else:
-    # Model not available — show placeholder
+    # Model not available - show placeholder
     st.markdown("---")
     st.subheader("🤖 LSTM Prediction")
-    st.info("📋 **Model Required** — The trained LSTM model is not available in this deployment. See the warning above for instructions on how to enable live predictions.")
+    st.info("📋 **Model Required** - The trained LSTM model is not available in this deployment. See the warning above for instructions on how to enable live predictions.")
     st.markdown("### ⏳ Prediction: *Model Required*")
 
 # ---------------------------------------------------------------------
@@ -370,4 +370,4 @@ st.dataframe(latest_news, use_container_width=True, hide_index=True)
 
 st.markdown("---")
 status = "with LSTM prediction" if model_available else "without LSTM prediction (model not found)"
-st.caption(f"🎯 Live Predictions — Uses the Optuna-tuned LSTM model with the same 23 features (technical + sentiment) as training. Running {status}.")
+st.caption(f"🎯 Live Predictions - Uses the Optuna-tuned LSTM model with the same 23 features (technical + sentiment) as training. Running {status}.")

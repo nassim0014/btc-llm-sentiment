@@ -4,19 +4,19 @@
 
 The pipeline commits a `features_for_lstm.pkl` file to the repo so the
 Streamlit "Live Predictions" page can run without retraining. **Pickle
-deserialization is arbitrary code execution** — if an attacker gains
+deserialization is arbitrary code execution** - if an attacker gains
 write access to the repo (compromised PAT, merged malicious PR), they
 can ship a tampered `.pkl` that runs any code on every user who opens
 the Live Predictions page on Streamlit Cloud.
 
 This module mitigates that risk with two layers:
 
-1. **SHA256 integrity verification** — the expected hash is stored in
+1. **SHA256 integrity verification** - the expected hash is stored in
    `src/config.py::BUNDLE_SHA256`. If the on-disk file's hash does not
    match, we refuse to load. Updating the hash requires a code change
    that goes through PR review.
 
-2. **Restricted unpickler** — we override `pickle.Unpickler.find_class`
+2. **Restricted unpickler** - we override `pickle.Unpickler.find_class`
    to only allow a strict allowlist of module/class pairs that the
    legitimate bundle uses (numpy arrays, sklearn StandardScaler, plain
    dict/list/str/int/float). Any pickle that tries to import anything
@@ -71,7 +71,7 @@ def verify_sha256(path: Path, expected: str) -> None:
             f"SHA256 mismatch for {path}:\n"
             f"  expected: {expected}\n"
             f"  actual:   {actual}\n"
-            f"Refusing to load — file may have been tampered with. "
+            f"Refusing to load - file may have been tampered with. "
             f"If you just retrained the model, update BUNDLE_SHA256 in "
             f"src/config.py with the new hash."
         )
@@ -101,7 +101,7 @@ _ALLOWED_PICKLE_CLASSES = frozenset(
         ("builtins", "NoneType"),
         ("collections", "OrderedDict"),
         ("collections", "defaultdict"),
-        # numpy — arrays, dtypes, scalars (both old and new module paths)
+        # numpy - arrays, dtypes, scalars (both old and new module paths)
         ("numpy", "ndarray"),
         ("numpy", "dtype"),
         ("numpy", "float64"),
@@ -115,15 +115,15 @@ _ALLOWED_PICKLE_CLASSES = frozenset(
         ("numpy", "uint16"),
         ("numpy", "uint32"),
         ("numpy", "uint64"),
-        # numpy 2.x renamed internal modules — both paths must be allowed
+        # numpy 2.x renamed internal modules - both paths must be allowed
         ("numpy.core.multiarray", "_reconstruct"),
         ("numpy.core.multiarray", "scalar"),
         ("numpy._core.multiarray", "_reconstruct"),
         ("numpy._core.multiarray", "scalar"),
-        # sklearn — only StandardScaler (the only estimator in the bundle)
+        # sklearn - only StandardScaler (the only estimator in the bundle)
         ("sklearn.preprocessing._data", "StandardScaler"),
         ("sklearn.preprocessing.data", "StandardScaler"),  # older sklearn path
-        # pandas — Timestamps appear in date arrays
+        # pandas - Timestamps appear in date arrays
         ("pandas", "Timestamp"),
         ("pandas._libs.tslibs", "Timestamp"),
         ("pandas._libs.tslibs.timestamps", "Timestamp"),
@@ -165,7 +165,7 @@ def safe_load_bundle(
         Expected SHA256 hex digest. Defaults to BUNDLE_SHA256 from config.
     skip_integrity_check : bool
         If True, skip the SHA256 check (e.g. for tests with a fresh bundle).
-        Default False — never skip in production.
+        Default False - never skip in production.
 
     Returns
     -------
