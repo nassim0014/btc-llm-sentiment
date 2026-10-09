@@ -110,7 +110,15 @@ def risk_managed_backtest(
     if len(first_valid) > 0:
         realized_vol[:first_valid[0]] = realized_vol[first_valid[0]]
     else:
-        realized_vol[:] = 0.20  # fallback
+        # No valid rolling-std value at all (series shorter than
+        # vol_lookback + 1). Fall back to target_annual_vol itself, not a
+        # hardcoded constant - that makes vol_factor = target/realized == 1.0
+        # ("trade at full size, nothing to scale against yet"), matching
+        # the sibling src/backtest/simulator.py::run_backtest, which fills
+        # the same all-NaN case with `.fillna(target_annual_vol)`. A fixed
+        # literal here (previously 0.20) silently mis-sizes every position
+        # whenever the caller picks target_annual_vol != that literal.
+        realized_vol[:] = target_annual_vol
 
     # Avoid division by zero
     realized_vol = np.maximum(realized_vol, 0.01)

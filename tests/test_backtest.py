@@ -144,6 +144,40 @@ class TestRiskManagedBacktest:
         result = risk_managed_backtest(prob, close, threshold=0.5)
         assert abs(result.equity[0] - 1.0) < 1e-9
 
+    def test_vol_fallback_respects_target_annual_vol(self):
+        """When the series is shorter than `vol_lookback`, the rolling
+        realized-vol window is entirely NaN and `realized_vol` falls back to
+        a flat value. That fallback must equal `target_annual_vol` (the
+        sibling `src/backtest/simulator.py::run_backtest` does exactly this
+        via `.fillna(target_annual_vol)`), so `vol_target_factor` works out
+        to 1.0 - "trade at full size, no scaling" - regardless of what
+        target_annual_vol the caller picked.
+
+        Before the fix, the fallback was hardcoded to the literal 0.20
+        (coincidentally the *default* target_annual_vol), so any caller who
+        passed a different target on a short series got silently wrong
+        position sizing: target_annual_vol=0.10 produced
+        vol_target_factor == min(0.10/0.20, 1.0) == 0.5 instead of 1.0,
+        halving every position for no documented reason.
+        """
+        n = 10  # shorter than vol_lookback=20 -> rolling std is all-NaN
+        close = 100.0 * np.cumprod(1 + np.full(n, 0.001))
+        prob = np.full(n, 0.9)  # always above threshold
+
+        result = risk_managed_backtest(
+            prob=prob, close=close, threshold=0.5,
+            target_annual_vol=0.10, vol_lookback=20,
+        )
+        # Every day falls inside the all-NaN fallback window (or the
+        # explicit len(realized_vol) <= i default of 1.0), so the factor
+        # must be 1.0 throughout - never a value derived from a mismatched
+        # hardcoded constant.
+        assert np.allclose(result.vol_target_factor, 1.0), (
+            f"Expected vol_target_factor == 1.0 for all days when the "
+            f"fallback vol equals target_annual_vol, got "
+            f"{result.vol_target_factor}"
+        )
+
     def test_metrics_dict_has_required_keys(self, synthetic_prob_and_close):
         """All expected metric keys must be present."""
         prob, close = synthetic_prob_and_close
