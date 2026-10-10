@@ -29,7 +29,7 @@ scikit-learn==1.9.0
 optuna==4.9.0
 
 # ---- Model interpretability (Phase 2) ----
-shap==0.52.0
+shap==0.49.1
 
 # ---- Parquet caching for FinBERT scores (Phase 2) ----
 pyarrow==17.0.0
