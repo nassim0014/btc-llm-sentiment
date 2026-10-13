@@ -44,7 +44,7 @@ plotly==7.0.0
 
 # ---- Notebook runner ----
 jupyter==1.1.1
-ipykernel==7.3.0
+ipykernel==7.4.0
 nbconvert==7.17.1
 
 # ---- Dev / test / lint (not needed at runtime) ----
